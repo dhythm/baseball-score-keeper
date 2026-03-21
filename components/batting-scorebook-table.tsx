@@ -1,14 +1,17 @@
 "use client";
 
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import type { FieldingPosition, Game, TeamSide } from "@/lib/types";
 import { FIELDING_POSITION_SCOREBOOK } from "@/lib/types";
 import {
   formatBattingAverage,
-  getAtBatInningCellLabel,
+  getBaseRunningCellDisplayText,
   getEffectiveTotalInnings,
   getPlayerBattingStats,
+  getPlayerInningScorebookEvents,
 } from "@/lib/game-utils";
+import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 
 interface BattingScorebookTableProps {
   game: Game;
@@ -150,7 +153,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                   </td>
                   {Array.from({ length: innings }, (_, i) => {
                     const inning = i + 1;
-                    const cell = getAtBatInningCellLabel(
+                    const segs = getPlayerInningScorebookEvents(
                       events,
                       player.id,
                       teamSide,
@@ -158,7 +161,31 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                     );
                     return (
                       <td key={inning} className={tdInning}>
-                        {cell || " "}
+                        {segs.length === 0 ? (
+                          " "
+                        ) : (
+                          <div className="flex flex-wrap items-end justify-center gap-x-0.5 gap-y-0.5">
+                            {segs.map((ev, idx) => (
+                              <Fragment key={ev.id}>
+                                {idx > 0 && (
+                                  <span
+                                    className="self-center text-[9px] text-muted-foreground"
+                                    aria-hidden
+                                  >
+                                    ・
+                                  </span>
+                                )}
+                                {ev.type === "atBat" ? (
+                                  <ScorebookAtBatLine event={ev} />
+                                ) : (
+                                  <span className="text-[10px] leading-tight text-primary">
+                                    {getBaseRunningCellDisplayText(ev)}
+                                  </span>
+                                )}
+                              </Fragment>
+                            ))}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -191,7 +218,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
       </div>
       <p className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
         列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振 犠=犠打 率=打率。
-        右側の数字はイニング（先攻は各回の表・後攻は裏の結果）。
+        右側の数字はイニング（先攻は各回の表・後攻は裏の結果）。イニング欄はプレー表記の下に打点（自動）を小さく表示します。
       </p>
     </div>
   );

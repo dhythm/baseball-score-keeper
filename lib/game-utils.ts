@@ -1,5 +1,6 @@
 import type {
   AtBatResult,
+  Base,
   FieldingPosition,
   Game,
   GameEvent,
@@ -11,7 +12,11 @@ import type {
   Team,
   TeamSide,
 } from "./types";
-import { AT_BAT_SCOREBOOK_SHORT, FIELDING_POSITIONS } from "./types";
+import {
+  AT_BAT_SCOREBOOK_SHORT,
+  BASE_RUNNING_SCOREBOOK_SHORT,
+  FIELDING_POSITIONS,
+} from "./types";
 
 export function isStrikeoutResult(r: AtBatResult): boolean {
   return (
@@ -635,10 +640,6 @@ export function formatBattingAverage(hits: number, atBats: number): string {
   return (hits / atBats).toFixed(3);
 }
 
-/**
- * Short scorebook text for one player’s plate appearance(s) in a given inning
- * (when that team is batting: 表 for away, 裏 for home).
- */
 /** At-bat event(s) for one player in one inning (先攻=表・後攻=裏). */
 export function getAtBatEventsForPlayerInning(
   events: GameEvent[],
@@ -658,21 +659,147 @@ export function getAtBatEventsForPlayerInning(
   );
 }
 
+/** RBI credited on this plate appearance (runner movements with `isRBI` scoring). */
+export function countRbiFromAtBat(event: GameEvent): number {
+  if (event.type !== "atBat") return 0;
+  return event.runnerMovements.filter((m) => m.to === "home" && m.isRBI).length;
+}
+
+function detailAlreadyHasRbiNote(detail: string): boolean {
+  return /打点/.test(detail);
+}
+
+/** プレー表記と打点を UI で分けて表示するための構造。 */
+export type AtBatCellDisplayParts = {
+  /** プレー本体（`resultDetail` または既定の短い表記） */
+  playLine: string;
+  /** データから付与する打点（例: 打点2）。`resultDetail` に「打点」が含まれる場合は null */
+  rbiNote: string | null;
+};
+
+export function getAtBatCellDisplayParts(
+  event: GameEvent
+): AtBatCellDisplayParts | null {
+  if (event.type !== "atBat" || !event.result) return null;
+  const d = event.resultDetail?.trim() ?? "";
+  const playLine = d || AT_BAT_SCOREBOOK_SHORT[event.result];
+  const rbi = countRbiFromAtBat(event);
+  const rbiNote =
+    rbi > 0 && !detailAlreadyHasRbiNote(d) ? `打点${rbi}` : null;
+  return { playLine, rbiNote };
+}
+
+/**
+ * At-bat + base-running events for one player in one inning, in game order.
+ */
+export function getPlayerInningScorebookEvents(
+  events: GameEvent[],
+  playerId: string,
+  teamSide: TeamSide,
+  inning: number
+): GameEvent[] {
+  const half: Half = teamSide === "away" ? "top" : "bottom";
+  return events.filter((e) => {
+    if (e.inning !== inning || e.half !== half || e.team !== teamSide) {
+      return false;
+    }
+    if (e.type === "atBat" && e.batterId === playerId && e.result) {
+      return true;
+    }
+    if (
+      e.type === "baseRunning" &&
+      e.baseRunningType &&
+      e.runnerMovements.some((m) => m.playerId === playerId)
+    ) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function stealDestinationLabel(to: Base | "home" | "out"): string {
+  if (to === "home") return "本";
+  if (to === "out") return "";
+  const map: Record<Base, string> = {
+    first: "1",
+    second: "2",
+    third: "3",
+  };
+  return map[to];
+}
+
+function formatRunnerAdvance(m: RunnerMovement): string {
+  const fromLabel =
+    m.from === "batter"
+      ? "打"
+      : ({ first: "1", second: "2", third: "3" } as const)[m.from];
+  if (m.to === "out") return `${fromLabel}→死`;
+  if (m.to === "home") return `${fromLabel}→本`;
+  const toLabel = ({ first: "1", second: "2", third: "3" } as const)[m.to];
+  return `${fromLabel}→${toLabel}`;
+}
+
+/**
+ * Text for a base-running row in scorebook cells: `resultDetail` if set, else compact notation.
+ */
+export function getBaseRunningCellDisplayText(event: GameEvent): string {
+  if (event.type !== "baseRunning" || !event.baseRunningType) return "";
+  const custom = event.resultDetail?.trim();
+  if (custom) return custom;
+  const m = event.runnerMovements[0];
+  if (!m) return BASE_RUNNING_SCOREBOOK_SHORT[event.baseRunningType];
+  const t = event.baseRunningType;
+  const adv = formatRunnerAdvance(m);
+
+  switch (t) {
+    case "steal":
+      return `盗${stealDestinationLabel(m.to)}`;
+    case "caughtStealing":
+      return `盗死·${adv}`;
+    case "wildPitch":
+      return `WP·${adv}`;
+    case "passedBall":
+      return `PB·${adv}`;
+    case "pickOff":
+      return `牽制死·${adv}`;
+    case "balk":
+      return m.to === "out" ? "ボーク死" : `ボーク·${adv}`;
+    default:
+      return BASE_RUNNING_SCOREBOOK_SHORT[event.baseRunningType];
+  }
+}
+
+/**
+ * 1行にまとめた表記（集計・aria 用）。打点は `·打点N` で連結。
+ */
+export function getAtBatCellDisplayText(event: GameEvent): string {
+  const p = getAtBatCellDisplayParts(event);
+  if (!p) return "";
+  return p.rbiNote ? `${p.playLine}·${p.rbiNote}` : p.playLine;
+}
+
+/**
+ * Combined label for inning column (打席と同一イニング内の走塁を「・」で連結)。
+ */
 export function getAtBatInningCellLabel(
   events: GameEvent[],
   playerId: string,
   teamSide: TeamSide,
   inning: number
 ): string {
-  const matches = getAtBatEventsForPlayerInning(
+  const merged = getPlayerInningScorebookEvents(
     events,
     playerId,
     teamSide,
     inning
   );
-  if (matches.length === 0) return "";
-  return matches
-    .map((e) => AT_BAT_SCOREBOOK_SHORT[e.result!])
+  if (merged.length === 0) return "";
+  return merged
+    .map((e) =>
+      e.type === "atBat"
+        ? getAtBatCellDisplayText(e)
+        : getBaseRunningCellDisplayText(e)
+    )
     .join("・");
 }
 
@@ -721,14 +848,10 @@ export function buildAtBatEventUpdateFromResult(
     state.outs
   );
 
-  let detail: string | undefined;
-  if (newResult === "groundOut" || newResult === "otherOut") {
-    if (resultDetail !== undefined && resultDetail !== null) {
-      detail = resultDetail.trim() || undefined;
-    } else {
-      detail = event.resultDetail;
-    }
-  }
+  const detail =
+    resultDetail !== undefined
+      ? resultDetail?.trim() || undefined
+      : event.resultDetail;
 
   return {
     result: newResult,

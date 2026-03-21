@@ -139,6 +139,16 @@ export const BASE_RUNNING_LABELS: Record<BaseRunningType, string> = {
   balk: "ボーク",
 };
 
+/** Default short text for inning cells (走塁・配球). Custom `resultDetail` overrides. */
+export const BASE_RUNNING_SCOREBOOK_SHORT: Record<BaseRunningType, string> = {
+  steal: "盗",
+  caughtStealing: "盗死",
+  wildPitch: "WP",
+  passedBall: "PB",
+  pickOff: "牽制死",
+  balk: "ボーク",
+};
+
 export const FIELDING_POSITION_LABELS: Record<FieldingPosition, string> = {
   pitcher: "投手 (P)",
   catcher: "捕手 (C)",
@@ -177,13 +187,13 @@ export const AT_BAT_SCOREBOOK_SHORT: Record<AtBatResult, string> = {
   homerun: "HR",
   groundOut: "ゴ",
   flyOut: "飛",
-  strikeout: "SO",
-  strikeoutSwinging: "SO",
-  strikeoutLooking: "K",
+  strikeout: "空三振",
+  strikeoutSwinging: "空三振",
+  strikeoutLooking: "見三振",
   doublePlay: "併",
   otherOut: "出",
-  walk: "B",
-  hitByPitch: "DB",
+  walk: "四球",
+  hitByPitch: "死球",
   error: "E",
   sacrifice: "犠",
   fieldersChoice: "FC",

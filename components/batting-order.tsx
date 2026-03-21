@@ -11,12 +11,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { Game, TeamSide } from "@/lib/types";
-import { AT_BAT_SCOREBOOK_SHORT } from "@/lib/types";
 import {
-  getAtBatEventsForPlayerInning,
+  getAtBatCellDisplayText,
+  getBaseRunningCellDisplayText,
+  getPlayerInningScorebookEvents,
   getEffectiveTotalInnings,
 } from "@/lib/game-utils";
 import { AtBatEditSheet } from "@/components/at-bat-edit-sheet";
+import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 
 interface BattingOrderPanelProps {
   game: Game;
@@ -144,7 +146,7 @@ function OrderList({
                 </td>
                 {Array.from({ length: inningCount }, (_, idx) => {
                   const inningNum = idx + 1;
-                  const cellEvents = getAtBatEventsForPlayerInning(
+                  const cellEvents = getPlayerInningScorebookEvents(
                     game.events,
                     player.id,
                     teamSide,
@@ -171,13 +173,25 @@ function OrderList({
                               key={ev.id}
                               type="button"
                               className={cn(
-                                "min-h-9 w-full max-w-[3.25rem] rounded border border-border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-primary shadow-sm",
-                                "hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
+                                "min-h-9 w-full max-w-[3.25rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
+                                ev.type === "atBat"
+                                  ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
+                                  : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                               )}
                               onClick={() => onEditAtBat(ev.id)}
-                              aria-label={`${inningNum}回の打席 ${ev.result ? AT_BAT_SCOREBOOK_SHORT[ev.result] : ""}を修正`}
+                              aria-label={
+                                ev.type === "atBat"
+                                  ? `${inningNum}回の打席 ${getAtBatCellDisplayText(ev)}を修正`
+                                  : `${inningNum}回の走塁 ${getBaseRunningCellDisplayText(ev)}を修正`
+                              }
                             >
-                              {ev.result ? AT_BAT_SCOREBOOK_SHORT[ev.result] : "?"}
+                              {ev.type === "atBat" ? (
+                                <ScorebookAtBatLine event={ev} />
+                              ) : (
+                                <span className="line-clamp-2 break-all px-0.5 text-[10px] leading-tight sm:text-[11px]">
+                                  {getBaseRunningCellDisplayText(ev)}
+                                </span>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -212,8 +226,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
       <CardHeader className="px-4 py-0 sm:px-6">
         <CardTitle className="text-base">打順</CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          列は1回〜のイニング（先攻は表・後攻は裏）。略号は SO/K/B/DB
-          など。セルをタップして修正できます。
+          列は1回〜のイニング（先攻は表・後攻は裏）。表記は日本語でも可。打点は得点が付いた打席で2行目に表示されます。セルをタップして修正できます。
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-0 pt-0 sm:px-6">

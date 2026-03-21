@@ -49,8 +49,8 @@ const CATEGORY_RESULTS: Record<ResultCategory, { result: AtBatResult; label: str
   out: [
     { result: "groundOut", label: "ゴロ" },
     { result: "flyOut", label: "フライ" },
-    { result: "strikeoutSwinging", label: "空振り三振 (SO)" },
-    { result: "strikeoutLooking", label: "見逃し三振 (K)" },
+    { result: "strikeoutSwinging", label: "空振り三振（空三振）" },
+    { result: "strikeoutLooking", label: "見逃し三振（見三振）" },
     { result: "doublePlay", label: "併殺打" },
     { result: "otherOut", label: "その他" },
   ],
@@ -61,10 +61,27 @@ const CATEGORY_RESULTS: Record<ResultCategory, { result: AtBatResult; label: str
   error: [{ result: "error", label: "エラー出塁" }],
   other: [
     { result: "sacrifice", label: "犠打" },
-    { result: "fieldersChoice", label: "FC" },
+    { result: "fieldersChoice", label: "FC（野選）" },
     { result: "interference", label: "打撃妨害" },
   ],
 };
+
+function notationPlaceholder(category: ResultCategory): string {
+  switch (category) {
+    case "hit":
+      return "表記（任意）例: 左安、中2、右本、遊安";
+    case "out":
+      return "表記（任意）例: 遊ゴ、中飛、投飛、併殺";
+    case "walk":
+      return "表記（任意）例: 敬遠、四球、死球";
+    case "error":
+      return "表記（任意）例: 遊E、投E、一E、エ安";
+    case "other":
+      return "表記（任意）例: 犠バント、FC、遊FC（野選）";
+    default:
+      return "";
+  }
+}
 
 export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputProps) {
   const [selectedCategory, setSelectedCategory] = useState<ResultCategory | null>(null);
@@ -116,6 +133,15 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
             </span>
           </div>
 
+          <div className="mb-3">
+            <Input
+              placeholder={notationPlaceholder(selectedCategory)}
+              value={resultDetail}
+              onChange={(e) => setResultDetail(e.target.value)}
+              className="text-sm"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             {results.map(({ result, label }) => {
               const isDoublePlayDisabled = result === "doublePlay" && currentOuts >= 2;
@@ -136,17 +162,6 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
               );
             })}
           </div>
-
-          {selectedCategory === "out" && (
-            <div className="mt-3">
-              <Input
-                placeholder="補足メモ (例: ショートゴロ)"
-                value={resultDetail}
-                onChange={(e) => setResultDetail(e.target.value)}
-                className="text-sm"
-              />
-            </div>
-          )}
         </CardContent>
       </Card>
     );

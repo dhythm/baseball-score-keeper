@@ -52,8 +52,10 @@ export interface Player {
 export interface Team {
   name: string;
   players: Player[];
-  /** Must be one of the players with `position === "pitcher"` when a pitcher is in the lineup. */
+  /** When a pitcher appears in the batting order, this matches that player’s id. */
   startingPitcherId?: string | null;
+  /** Starting pitcher name. Required; if a pitcher is in the lineup, this stays in sync with that row. */
+  startingPitcherName?: string;
 }
 
 export interface RunnerMovement {

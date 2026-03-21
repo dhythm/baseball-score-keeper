@@ -68,14 +68,19 @@ export function getSelectableFieldingPositions(
   });
 }
 
-/** When there is exactly one pitcher in the lineup, they are the starting pitcher. */
+/** When there is exactly one pitcher in the lineup, link them and mirror their name into `startingPitcherName`. */
 export function syncStartingPitcher(team: Team): Team {
   const pitchers = team.players.filter((p) => p.position === "pitcher");
   if (pitchers.length === 0) {
     return { ...team, startingPitcherId: null };
   }
   if (pitchers.length === 1) {
-    return { ...team, startingPitcherId: pitchers[0].id };
+    const p = pitchers[0];
+    return {
+      ...team,
+      startingPitcherId: p.id,
+      startingPitcherName: p.name,
+    };
   }
   return { ...team, startingPitcherId: null };
 }
@@ -95,9 +100,14 @@ export function isTeamRosterValid(team: Team): boolean {
   }
   const pitcherCount = team.players.filter((p) => p.position === "pitcher").length;
   if (pitcherCount > 1) return false;
+
+  const spName = team.startingPitcherName?.trim() ?? "";
+  if (!spName) return false;
+
   if (pitcherCount === 1) {
     const pitcher = team.players.find((p) => p.position === "pitcher")!;
     if (team.startingPitcherId !== pitcher.id) return false;
+    if (spName !== pitcher.name.trim()) return false;
   }
   return true;
 }

@@ -27,6 +27,7 @@ const emptyTeam = (): Team => ({
   name: "",
   players: [],
   startingPitcherId: null,
+  startingPitcherName: "",
 });
 
 /** Standard 9 positions (no DH) for sample rosters. */
@@ -53,6 +54,7 @@ function buildSampleTeam(teamName: string, playerNamePrefix: string): Team {
     name: teamName,
     players,
     startingPitcherId: null,
+    startingPitcherName: "",
   });
 }
 
@@ -75,9 +77,9 @@ function TeamSetupForm({
     useState<FieldingPosition | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
-  const pitcherCandidates = team.players.filter(
+  const lineupPitcherCount = team.players.filter(
     (p) => p.position === "pitcher"
-  );
+  ).length;
 
   const addPlayer = () => {
     if (!newPlayerName.trim() || !newPlayerPosition) return;
@@ -145,11 +147,32 @@ function TeamSetupForm({
     const players = team.players.map((p) =>
       p.id === playerId ? { ...p, name } : p
     );
-    onTeamChange({ ...team, players });
+    let next: Team = { ...team, players };
+    if (team.startingPitcherId === playerId) {
+      next = { ...next, startingPitcherName: name };
+    }
+    onTeamChange(next);
   };
 
-  const updateStartingPitcher = (playerId: string) => {
-    onTeamChange({ ...team, startingPitcherId: playerId });
+  /** Keeps lineup pitcher row in sync when the linked starting-pitcher name field is edited. */
+  const updateStartingPitcherName = (value: string) => {
+    if (
+      team.startingPitcherId &&
+      team.players.some(
+        (p) =>
+          p.id === team.startingPitcherId && p.position === "pitcher"
+      )
+    ) {
+      onTeamChange({
+        ...team,
+        startingPitcherName: value,
+        players: team.players.map((p) =>
+          p.id === team.startingPitcherId ? { ...p, name: value } : p
+        ),
+      });
+      return;
+    }
+    onTeamChange({ ...team, startingPitcherName: value });
   };
 
   const newRowSelectable = getSelectableFieldingPositions(
@@ -182,27 +205,18 @@ function TeamSetupForm({
           <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
             先発投手
           </label>
-          {pitcherCandidates.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              打順に投手 (P) がいる場合のみ、ここで先発投手を選べます。
-            </p>
-          ) : (
-            <Select
-              value={team.startingPitcherId ?? undefined}
-              onValueChange={updateStartingPitcher}
-            >
-              <SelectTrigger className="w-full bg-background">
-                <SelectValue placeholder="先発投手を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                {pitcherCandidates.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.order}. {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Input
+            placeholder="先発投手の氏名"
+            value={team.startingPitcherName ?? ""}
+            onChange={(e) => updateStartingPitcherName(e.target.value)}
+            className="bg-background"
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {lineupPitcherCount === 1
+              ? "打順に投手 (P) がいるため、氏名はその打順と連動します（どちらかを編集すると両方更新されます）。"
+              : "打順に投手がいない場合（DH 制で投手が打たないなど）は、ここに先発投手の氏名を入力してください。"}
+          </p>
         </div>
 
         <div>

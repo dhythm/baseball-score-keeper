@@ -11,6 +11,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { Game, TeamSide } from "@/lib/types";
+import { AT_BAT_SCOREBOOK_SHORT } from "@/lib/types";
+import {
+  getAtBatEventsForPlayerInning,
+  getEffectiveTotalInnings,
+} from "@/lib/game-utils";
+import { AtBatEditSheet } from "@/components/at-bat-edit-sheet";
 
 interface BattingOrderPanelProps {
   game: Game;
@@ -20,10 +26,12 @@ function OrderList({
   game,
   teamSide,
   isBattingTeam,
+  onEditAtBat,
 }: {
   game: Game;
   teamSide: TeamSide;
   isBattingTeam: boolean;
+  onEditAtBat: (eventId: string) => void;
 }) {
   const team = game.teams[teamSide];
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
@@ -33,51 +41,156 @@ function OrderList({
   const showNextBadge =
     isBattingTeam && playerCount > 1 && nextIndex !== batterIndex;
 
+  const inningCount = getEffectiveTotalInnings(game);
+  const halfForTeam = teamSide === "away" ? "top" : "bottom";
+
+  const thInning =
+    "min-w-9 border-b border-border px-0.5 py-1.5 text-center text-[11px] font-bold tabular-nums sm:text-xs";
+  const tdInning =
+    "min-w-9 border-b border-border px-0.5 py-1 align-middle text-center";
+
   return (
-    <ul
-      className="divide-y divide-border rounded-lg border border-border bg-card overflow-hidden touch-manipulation"
+    <div
+      className="overflow-x-auto rounded-lg border border-border bg-card touch-pan-x"
       aria-label={`${team.name || (teamSide === "away" ? "先攻" : "後攻")}の打順`}
     >
-      {team.players.map((player, i) => {
-        const isCurrent = isBattingTeam && i === batterIndex;
-        const isNext =
-          showNextBadge && i === nextIndex && !isCurrent;
-
-        return (
-          <li
-            key={player.id}
-            className={cn(
-              "flex min-h-11 items-center gap-2 px-3 py-2 sm:min-h-10",
-              isCurrent &&
-                "bg-primary/12 border-l-4 border-l-primary pl-2",
-              !isCurrent && isNext && "bg-muted/60"
-            )}
-          >
-            <span className="font-mono text-sm tabular-nums w-9 shrink-0 text-center text-muted-foreground">
-              {i + 1}
-            </span>
-            <span
-              className={cn(
-                "flex-1 min-w-0 truncate text-base leading-snug",
-                isCurrent ? "font-bold text-foreground" : "text-foreground"
-              )}
+      <table className="w-max min-w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border bg-muted/50">
+            <th
+              className="sticky left-0 z-20 w-8 min-w-8 border-r border-border bg-muted/50 px-1 py-1.5 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
+              scope="col"
             >
-              {player.name}
-            </span>
-            {isCurrent && (
-              <span className="text-xs font-semibold text-primary shrink-0">
-                打席
-              </span>
-            )}
-            {isNext && (
-              <span className="text-xs text-muted-foreground shrink-0">
-                次
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              #
+            </th>
+            <th
+              className="sticky left-8 z-20 w-28 min-w-28 border-r border-border bg-muted/50 px-1 py-1.5 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
+              scope="col"
+            >
+              選手
+            </th>
+            {Array.from({ length: inningCount }, (_, idx) => {
+              const inningNum = idx + 1;
+              const isLiveColumn =
+                inningNum === game.currentState.inning &&
+                game.currentState.half === halfForTeam;
+              return (
+                <th
+                  key={inningNum}
+                  scope="col"
+                  className={cn(
+                    thInning,
+                    isLiveColumn && "bg-accent/25 text-accent-foreground"
+                  )}
+                >
+                  {inningNum}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {team.players.map((player, i) => {
+            const isCurrent = isBattingTeam && i === batterIndex;
+            const isNext =
+              showNextBadge && i === nextIndex && !isCurrent;
+
+            return (
+              <tr
+                key={player.id}
+                className={cn(
+                  isCurrent && "bg-primary/10",
+                  !isCurrent && isNext && "bg-muted/50"
+                )}
+              >
+                <td
+                  className={cn(
+                    "sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-card px-1 py-1.5 text-center font-mono text-xs tabular-nums text-muted-foreground",
+                    isCurrent && "bg-primary/10",
+                    !isCurrent && isNext && "bg-muted/50"
+                  )}
+                >
+                  {i + 1}
+                </td>
+                <td
+                  className={cn(
+                    "sticky left-8 z-10 w-28 min-w-28 border-r border-border bg-card px-1 py-1.5 align-top",
+                    isCurrent && "bg-primary/10",
+                    !isCurrent && isNext && "bg-muted/50"
+                  )}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span
+                      className={cn(
+                        "line-clamp-2 text-xs leading-snug sm:text-sm",
+                        isCurrent ? "font-bold text-foreground" : "text-foreground"
+                      )}
+                    >
+                      {player.name}
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {isCurrent && (
+                        <span className="text-[10px] font-semibold text-primary">
+                          打席
+                        </span>
+                      )}
+                      {isNext && (
+                        <span className="text-[10px] text-muted-foreground">
+                          次
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                {Array.from({ length: inningCount }, (_, idx) => {
+                  const inningNum = idx + 1;
+                  const cellEvents = getAtBatEventsForPlayerInning(
+                    game.events,
+                    player.id,
+                    teamSide,
+                    inningNum
+                  );
+                  const isLiveColumn =
+                    inningNum === game.currentState.inning &&
+                    game.currentState.half === halfForTeam;
+
+                  return (
+                    <td
+                      key={inningNum}
+                      className={cn(
+                        tdInning,
+                        isLiveColumn && "bg-accent/10"
+                      )}
+                    >
+                      {cellEvents.length === 0 ? (
+                        <span className="text-muted-foreground/40">·</span>
+                      ) : (
+                        <div className="flex min-h-10 flex-col items-center justify-center gap-0.5">
+                          {cellEvents.map((ev) => (
+                            <button
+                              key={ev.id}
+                              type="button"
+                              className={cn(
+                                "min-h-9 w-full max-w-[3.25rem] rounded border border-border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-primary shadow-sm",
+                                "hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
+                              )}
+                              onClick={() => onEditAtBat(ev.id)}
+                              aria-label={`${inningNum}回の打席 ${ev.result ? AT_BAT_SCOREBOOK_SHORT[ev.result] : ""}を修正`}
+                            >
+                              {ev.result ? AT_BAT_SCOREBOOK_SHORT[ev.result] : "?"}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -85,6 +198,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
   const { half } = game.currentState;
   const battingTeamSide: TeamSide = half === "top" ? "away" : "home";
   const [activeTab, setActiveTab] = useState<TeamSide>(battingTeamSide);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTab(battingTeamSide);
@@ -98,7 +212,8 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
       <CardHeader className="px-4 py-0 sm:px-6">
         <CardTitle className="text-base">打順</CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          攻撃中のチームに「打席」「次」を表示。スマホはタブ切替、PCは両チームを横に並べます。
+          列は1回〜のイニング（先攻は表・後攻は裏）。略号は SO/K/B/DB
+          など。セルをタップして修正できます。
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-0 pt-0 sm:px-6">
@@ -118,6 +233,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
               game={game}
               teamSide="away"
               isBattingTeam={battingTeamSide === "away"}
+              onEditAtBat={setEditingEventId}
             />
           </div>
           <div className="min-w-0 space-y-2">
@@ -135,6 +251,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
               game={game}
               teamSide="home"
               isBattingTeam={battingTeamSide === "home"}
+              onEditAtBat={setEditingEventId}
             />
           </div>
         </div>
@@ -164,6 +281,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
                 game={game}
                 teamSide="away"
                 isBattingTeam={battingTeamSide === "away"}
+                onEditAtBat={setEditingEventId}
               />
             </TabsContent>
             <TabsContent value="home" className="mt-0">
@@ -171,11 +289,21 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
                 game={game}
                 teamSide="home"
                 isBattingTeam={battingTeamSide === "home"}
+                onEditAtBat={setEditingEventId}
               />
             </TabsContent>
           </Tabs>
         </div>
       </CardContent>
+
+      <AtBatEditSheet
+        game={game}
+        eventId={editingEventId}
+        open={editingEventId !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingEventId(null);
+        }}
+      />
     </Card>
   );
 }

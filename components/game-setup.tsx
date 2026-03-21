@@ -22,6 +22,7 @@ import {
   isTeamRosterValid,
   syncStartingPitcher,
 } from "@/lib/game-utils";
+import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
 
 const emptyTeam = (): Team => ({
   name: "",
@@ -443,6 +444,10 @@ export function GameSetup() {
     setHomeTeam(SAMPLE_PRESET.home());
   };
 
+  const loadDummyGame = () => {
+    dispatch({ type: "LOAD_GAME", game: createDummyGameAfterSevenInnings() });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3">
@@ -464,6 +469,17 @@ export function GameSetup() {
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             先攻：イーグルス／選手1〜9、後攻：ライオンズ／打者1〜9（投手〜右翼）
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={loadDummyGame}
+          >
+            検証用（7回終了ダミーを読み込む）
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            試合中は画面上部の「検証用」からも同じダミーに切り替えられます。
           </p>
         </div>
 

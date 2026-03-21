@@ -10,7 +10,10 @@ export type AtBatResult =
   | "homerun"
   | "groundOut"
   | "flyOut"
+  /** Legacy saves; same play as strikeoutSwinging. */
   | "strikeout"
+  | "strikeoutSwinging"
+  | "strikeoutLooking"
   | "doublePlay"
   | "otherOut"
   | "walk"
@@ -115,6 +118,8 @@ export const RESULT_LABELS: Record<AtBatResult, string> = {
   groundOut: "ゴロアウト",
   flyOut: "フライアウト",
   strikeout: "三振",
+  strikeoutSwinging: "空振り三振",
+  strikeoutLooking: "見逃し三振",
   doublePlay: "併殺打",
   otherOut: "その他アウト",
   walk: "フォアボール",
@@ -172,11 +177,13 @@ export const AT_BAT_SCOREBOOK_SHORT: Record<AtBatResult, string> = {
   homerun: "HR",
   groundOut: "ゴ",
   flyOut: "飛",
-  strikeout: "三",
+  strikeout: "SO",
+  strikeoutSwinging: "SO",
+  strikeoutLooking: "K",
   doublePlay: "併",
   otherOut: "出",
-  walk: "四",
-  hitByPitch: "死",
+  walk: "B",
+  hitByPitch: "DB",
   error: "E",
   sacrifice: "犠",
   fieldersChoice: "FC",

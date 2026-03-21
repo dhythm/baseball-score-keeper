@@ -14,6 +14,7 @@ import {
   getCurrentBatter,
   getDefaultMovements,
   applyRunnerMovements,
+  isAutoAdvanceAtBatResult,
 } from "@/lib/game-utils";
 import {
   AlertDialog,
@@ -26,12 +27,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Flag } from "lucide-react";
+import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
 
 export function LiveScoring() {
   const { game, dispatch } = useGame();
   const [pendingResult, setPendingResult] = useState<AtBatResult | null>(null);
   const [pendingDetail, setPendingDetail] = useState<string | undefined>();
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
+  const [showDummyDialog, setShowDummyDialog] = useState(false);
 
   if (!game) return null;
 
@@ -40,7 +43,7 @@ export function LiveScoring() {
   const handleAtBatResult = (result: AtBatResult, detail?: string) => {
     if (!currentBatter) return;
 
-    const isAutoAdvance = ["homerun", "strikeout", "walk", "hitByPitch"].includes(result);
+    const isAutoAdvance = isAutoAdvanceAtBatResult(result);
 
     if (isAutoAdvance) {
       const movements = getDefaultMovements(
@@ -159,6 +162,11 @@ export function LiveScoring() {
     dispatch({ type: "RESET_GAME" });
   };
 
+  const handleLoadDummyGame = () => {
+    dispatch({ type: "LOAD_GAME", game: createDummyGameAfterSevenInnings() });
+    setShowDummyDialog(false);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 flex items-center justify-between">
@@ -166,12 +174,21 @@ export function LiveScoring() {
           <span className="text-xl">&#9918;</span>
           スコアブック
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11 min-h-11 px-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation sm:text-sm"
+            onClick={() => setShowDummyDialog(true)}
+          >
+            検証用
+          </Button>
           <Button
             variant="ghost"
             size="icon"
             className="h-11 w-11 min-h-11 min-w-11 text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation"
             onClick={() => setShowEndGameDialog(true)}
+            aria-label="試合終了"
           >
             <Flag className="h-5 w-5" />
           </Button>
@@ -208,6 +225,23 @@ export function LiveScoring() {
           onConfirm={handleRunnerAdvanceConfirm}
         />
       )}
+
+      <AlertDialog open={showDummyDialog} onOpenChange={setShowDummyDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>検証用ダミーを読み込みますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              現在の試合データは上書きされます。7イニング終了後（8回表・0アウト・0-0）のダミーに切り替わります。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLoadDummyGame}>
+              読み込む
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showEndGameDialog} onOpenChange={setShowEndGameDialog}>
         <AlertDialogContent>

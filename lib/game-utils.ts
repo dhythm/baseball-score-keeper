@@ -13,6 +13,22 @@ import type {
 } from "./types";
 import { AT_BAT_SCOREBOOK_SHORT, FIELDING_POSITIONS } from "./types";
 
+export function isStrikeoutResult(r: AtBatResult): boolean {
+  return (
+    r === "strikeout" || r === "strikeoutSwinging" || r === "strikeoutLooking"
+  );
+}
+
+/** Results that skip runner-advance sheet (same as live scoring auto path). */
+export function isAutoAdvanceAtBatResult(r: AtBatResult): boolean {
+  return (
+    r === "homerun" ||
+    isStrikeoutResult(r) ||
+    r === "walk" ||
+    r === "hitByPitch"
+  );
+}
+
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
@@ -117,6 +133,8 @@ export function getDefaultOuts(result: AtBatResult): number {
     case "groundOut":
     case "flyOut":
     case "strikeout":
+    case "strikeoutSwinging":
+    case "strikeoutLooking":
     case "otherOut":
     case "sacrifice":
       return 1;
@@ -324,6 +342,8 @@ export function getDefaultMovements(
     case "groundOut":
     case "flyOut":
     case "strikeout":
+    case "strikeoutSwinging":
+    case "strikeoutLooking":
     case "otherOut":
       movements.push({
         playerId: batterId,
@@ -589,7 +609,9 @@ export function getPlayerBattingStats(
     runs,
     walks: playerAtBats.filter((e) => e.result === "walk").length,
     hitByPitch: playerAtBats.filter((e) => e.result === "hitByPitch").length,
-    strikeouts: playerAtBats.filter((e) => e.result === "strikeout").length,
+    strikeouts: playerAtBats.filter(
+      (e) => e.result && isStrikeoutResult(e.result)
+    ).length,
     sacrifice: playerAtBats.filter((e) => e.result === "sacrifice").length,
     plateAppearances: playerAtBats.length,
   };
@@ -617,14 +639,15 @@ export function formatBattingAverage(hits: number, atBats: number): string {
  * Short scorebook text for one player’s plate appearance(s) in a given inning
  * (when that team is batting: 表 for away, 裏 for home).
  */
-export function getAtBatInningCellLabel(
+/** At-bat event(s) for one player in one inning (先攻=表・後攻=裏). */
+export function getAtBatEventsForPlayerInning(
   events: GameEvent[],
   playerId: string,
   teamSide: TeamSide,
   inning: number
-): string {
+): GameEvent[] {
   const half: Half = teamSide === "away" ? "top" : "bottom";
-  const matches = events.filter(
+  return events.filter(
     (e) =>
       e.type === "atBat" &&
       e.batterId === playerId &&
@@ -633,10 +656,87 @@ export function getAtBatInningCellLabel(
       e.half === half &&
       e.result
   );
+}
+
+export function getAtBatInningCellLabel(
+  events: GameEvent[],
+  playerId: string,
+  teamSide: TeamSide,
+  inning: number
+): string {
+  const matches = getAtBatEventsForPlayerInning(
+    events,
+    playerId,
+    teamSide,
+    inning
+  );
   if (matches.length === 0) return "";
   return matches
     .map((e) => AT_BAT_SCOREBOOK_SHORT[e.result!])
     .join("・");
+}
+
+/** At-bat events for one player in chronological order (game.events order). */
+export function getAtBatEventsForPlayer(
+  events: GameEvent[],
+  playerId: string,
+  teamSide: TeamSide
+): GameEvent[] {
+  return events.filter(
+    (e) =>
+      e.type === "atBat" &&
+      e.batterId === playerId &&
+      e.team === teamSide &&
+      e.result
+  );
+}
+
+/**
+ * Rebuilds runner movements / runs / outs for a new result, as if the at-bat
+ * happened after replaying all prior events. Use with UPDATE_EVENT.
+ */
+export function buildAtBatEventUpdateFromResult(
+  game: Game,
+  eventId: string,
+  newResult: AtBatResult,
+  resultDetail?: string | null
+): Partial<GameEvent> | null {
+  const eventIndex = game.events.findIndex((e) => e.id === eventId);
+  if (eventIndex === -1) return null;
+  const event = game.events[eventIndex];
+  if (event.type !== "atBat" || !event.batterId) return null;
+
+  const priorEvents = game.events.slice(0, eventIndex);
+  const state = recalculateFromEvents(priorEvents, game.teams);
+  const movements = getDefaultMovements(
+    newResult,
+    state.runners,
+    event.batterId,
+    state.outs
+  );
+  const { runsScored, outsAdded } = applyRunnerMovements(
+    state.runners,
+    movements,
+    3,
+    state.outs
+  );
+
+  let detail: string | undefined;
+  if (newResult === "groundOut" || newResult === "otherOut") {
+    if (resultDetail !== undefined && resultDetail !== null) {
+      detail = resultDetail.trim() || undefined;
+    } else {
+      detail = event.resultDetail;
+    }
+  }
+
+  return {
+    result: newResult,
+    resultDetail: detail,
+    runnerMovements: movements,
+    outsInPlay: outsAdded,
+    runsScored,
+  };
 }
 
 export function getCurrentBatter(

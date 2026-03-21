@@ -49,7 +49,8 @@ const CATEGORY_RESULTS: Record<ResultCategory, { result: AtBatResult; label: str
   out: [
     { result: "groundOut", label: "ゴロ" },
     { result: "flyOut", label: "フライ" },
-    { result: "strikeout", label: "三振" },
+    { result: "strikeoutSwinging", label: "空振り三振 (SO)" },
+    { result: "strikeoutLooking", label: "見逃し三振 (K)" },
     { result: "doublePlay", label: "併殺打" },
     { result: "otherOut", label: "その他" },
   ],

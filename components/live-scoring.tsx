@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Scoreboard } from "@/components/scoreboard";
 import { GameSituation } from "@/components/game-situation";
 import { BattingOrderPanel } from "@/components/batting-order";
-import { AtBatInput } from "@/components/at-bat-input";
 import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
-import { LastEventUndo } from "@/components/last-event-undo";
+import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
+import { BaseRunningEventSheet } from "@/components/base-running-event-sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult, RunnerMovement, BaseRunningType, Base, Half } from "@/lib/types";
 import {
@@ -35,6 +41,8 @@ export function LiveScoring() {
   const [pendingDetail, setPendingDetail] = useState<string | undefined>();
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
   const [showDummyDialog, setShowDummyDialog] = useState(false);
+  const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
+  const [baseRunningOpen, setBaseRunningOpen] = useState(false);
 
   if (!game) return null;
 
@@ -149,10 +157,6 @@ export function LiveScoring() {
     });
   };
 
-  const handleUndo = () => {
-    dispatch({ type: "UNDO_LAST_EVENT" });
-  };
-
   const handleEndGame = () => {
     dispatch({ type: "END_GAME" });
     setShowEndGameDialog(false);
@@ -198,18 +202,39 @@ export function LiveScoring() {
       <main className="flex-1 w-full space-y-4 px-3 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 xl:px-8">
         <div className="mx-auto w-full max-w-lg space-y-4">
           <Scoreboard game={game} />
-          <GameSituation game={game} />
-          <AtBatInput
+          <GameSituation
             game={game}
-            onResult={handleAtBatResult}
-            onBaseRunningEvent={handleBaseRunningEvent}
+            onRecordResult={() => setAtBatDialogOpen(true)}
+            onOpenBaseRunning={() => setBaseRunningOpen(true)}
           />
-          <LastEventUndo game={game} onUndo={handleUndo} />
         </div>
         <div className="mx-auto w-full max-w-6xl">
           <BattingOrderPanel game={game} />
         </div>
       </main>
+
+      <AtBatResultDialog
+        game={game}
+        open={atBatDialogOpen}
+        onOpenChange={setAtBatDialogOpen}
+        mode="new"
+        onNewResult={handleAtBatResult}
+      />
+
+      <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>
+        <SheetContent side="bottom" className="max-h-[70vh]">
+          <SheetHeader>
+            <SheetTitle>打席外イベント</SheetTitle>
+          </SheetHeader>
+          <BaseRunningEventSheet
+            game={game}
+            onEvent={(runnerId, type, to) => {
+              handleBaseRunningEvent(runnerId, type, to);
+              setBaseRunningOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {pendingResult && (
         <RunnerAdvanceSheet

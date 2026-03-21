@@ -17,7 +17,8 @@ import {
   getPlayerInningScorebookEvents,
   getEffectiveTotalInnings,
 } from "@/lib/game-utils";
-import { AtBatEditSheet } from "@/components/at-bat-edit-sheet";
+import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
+import { BaseRunningEditDialog } from "@/components/base-running-edit-dialog";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 
 interface BattingOrderPanelProps {
@@ -229,6 +230,9 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
   const battingTeamSide: TeamSide = half === "top" ? "away" : "home";
   const [activeTab, setActiveTab] = useState<TeamSide>(battingTeamSide);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const editingEvent = editingEventId
+    ? game.events.find((e) => e.id === editingEventId)
+    : undefined;
 
   useEffect(() => {
     setActiveTab(battingTeamSide);
@@ -242,7 +246,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
       <CardHeader className="px-4 py-0 sm:px-6">
         <CardTitle className="text-base">打順</CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          列は1回〜のイニング（先攻は表・後攻は裏）。表記は日本語でも可。打点は得点が付いた打席で2行目に表示されます。セルをタップして修正できます。
+          列は1回〜のイニング（先攻は表・後攻は裏）。打点は得点が付いた打席で2行目に表示されます。セルをタップして修正できます。
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-0 pt-0 sm:px-6">
@@ -325,10 +329,19 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
         </div>
       </CardContent>
 
-      <AtBatEditSheet
+      <AtBatResultDialog
+        mode="edit"
         game={game}
-        eventId={editingEventId}
-        open={editingEventId !== null}
+        eventId={editingEvent?.type === "atBat" ? editingEventId : null}
+        open={editingEventId !== null && editingEvent?.type === "atBat"}
+        onOpenChange={(open) => {
+          if (!open) setEditingEventId(null);
+        }}
+      />
+      <BaseRunningEditDialog
+        game={game}
+        eventId={editingEvent?.type === "baseRunning" ? editingEventId : null}
+        open={editingEventId !== null && editingEvent?.type === "baseRunning"}
         onOpenChange={(open) => {
           if (!open) setEditingEventId(null);
         }}

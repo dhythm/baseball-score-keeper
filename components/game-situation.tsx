@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DiamondField } from "@/components/diamond-field";
 import type { Game } from "@/lib/types";
@@ -7,6 +8,8 @@ import { getCurrentBatter, getNextBatter } from "@/lib/game-utils";
 
 interface GameSituationProps {
   game: Game;
+  onRecordResult?: () => void;
+  onOpenBaseRunning?: () => void;
 }
 
 function OutIndicator({ outs }: { outs: number }) {
@@ -26,13 +29,20 @@ function OutIndicator({ outs }: { outs: number }) {
   );
 }
 
-export function GameSituation({ game }: GameSituationProps) {
+export function GameSituation({
+  game,
+  onRecordResult,
+  onOpenBaseRunning,
+}: GameSituationProps) {
   const { inning, half, outs, runners } = game.currentState;
   const currentBatter = getCurrentBatter(game);
   const nextBatter = getNextBatter(game);
 
   const teamSide = half === "top" ? "away" : "home";
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
+
+  const hasRunners =
+    !!runners.first || !!runners.second || !!runners.third;
 
   return (
     <Card className="border-border">
@@ -88,6 +98,30 @@ export function GameSituation({ game }: GameSituationProps) {
             )}
           </div>
         </div>
+
+        {(onRecordResult || (hasRunners && onOpenBaseRunning)) && (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            {onRecordResult && (
+              <Button
+                type="button"
+                className="h-12 w-full touch-manipulation text-base font-semibold sm:flex-1"
+                onClick={onRecordResult}
+              >
+                結果を入力
+              </Button>
+            )}
+            {hasRunners && onOpenBaseRunning && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full touch-manipulation sm:w-auto sm:min-w-[10rem]"
+                onClick={onOpenBaseRunning}
+              >
+                打席外イベント
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

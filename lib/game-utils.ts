@@ -887,6 +887,19 @@ export function buildAtBatEventUpdateFromResult(
   };
 }
 
+/**
+ * 指定イベントが適用される直前のアウト数（過去打席の修正 UI で併殺の可否など）。
+ */
+export function getOutsBeforeEvent(game: Game, eventId: string): number {
+  const eventIndex = game.events.findIndex((e) => e.id === eventId);
+  if (eventIndex <= 0) return 0;
+  const state = recalculateFromEvents(
+    game.events.slice(0, eventIndex),
+    game.teams
+  );
+  return state.outs;
+}
+
 export function getCurrentBatter(
   game: Game
 ): Player | null {

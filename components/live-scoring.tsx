@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Scoreboard } from "@/components/scoreboard";
 import { GameSituation } from "@/components/game-situation";
+import { BattingOrderPanel } from "@/components/batting-order";
 import { AtBatInput } from "@/components/at-bat-input";
 import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
 import { LastEventUndo } from "@/components/last-event-undo";
@@ -12,7 +13,6 @@ import type { AtBatResult, RunnerMovement, BaseRunningType, Base, Half } from "@
 import {
   getCurrentBatter,
   getDefaultMovements,
-  getDefaultOuts,
   applyRunnerMovements,
 } from "@/lib/game-utils";
 import {
@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Settings, Flag } from "lucide-react";
+import { Flag } from "lucide-react";
 
 export function LiveScoring() {
   const { game, dispatch } = useGame();
@@ -161,7 +161,7 @@ export function LiveScoring() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 flex items-center justify-between">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
           スコアブック
@@ -170,23 +170,28 @@ export function LiveScoring() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10"
+            className="h-11 w-11 min-h-11 min-w-11 text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation"
             onClick={() => setShowEndGameDialog(true)}
           >
-            <Flag className="h-4 w-4" />
+            <Flag className="h-5 w-5" />
           </Button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 space-y-4 pb-6 max-w-lg mx-auto w-full">
-        <Scoreboard game={game} />
-        <GameSituation game={game} />
-        <AtBatInput
-          game={game}
-          onResult={handleAtBatResult}
-          onBaseRunningEvent={handleBaseRunningEvent}
-        />
-        <LastEventUndo game={game} onUndo={handleUndo} />
+      <main className="flex-1 w-full space-y-4 px-3 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 xl:px-8">
+        <div className="mx-auto w-full max-w-lg space-y-4">
+          <Scoreboard game={game} />
+          <GameSituation game={game} />
+          <AtBatInput
+            game={game}
+            onResult={handleAtBatResult}
+            onBaseRunningEvent={handleBaseRunningEvent}
+          />
+          <LastEventUndo game={game} onUndo={handleUndo} />
+        </div>
+        <div className="mx-auto w-full max-w-6xl">
+          <BattingOrderPanel game={game} />
+        </div>
       </main>
 
       {pendingResult && (

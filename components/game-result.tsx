@@ -2,25 +2,25 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Scoreboard } from "@/components/scoreboard";
+import { BattingScorebookTable } from "@/components/batting-scorebook-table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGame } from "@/lib/game-context";
 import type { Game, GameEvent, TeamSide, Half } from "@/lib/types";
-import { getPlayerStats, getPlayerById } from "@/lib/game-utils";
+import { getPlayerById } from "@/lib/game-utils";
 import { RESULT_LABELS, BASE_RUNNING_LABELS } from "@/lib/types";
 import { RotateCcw, Edit } from "lucide-react";
 import {
@@ -33,57 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-function BattingStats({ game, teamSide }: { game: Game; teamSide: TeamSide }) {
-  const team = game.teams[teamSide];
-
-  return (
-    <Card className="border-border">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold text-foreground">
-          {team.name}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px] text-xs">選手</TableHead>
-              <TableHead className="text-center text-xs w-10">打数</TableHead>
-              <TableHead className="text-center text-xs w-10">安打</TableHead>
-              <TableHead className="text-center text-xs w-10">打点</TableHead>
-              <TableHead className="text-center text-xs w-10">得点</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {team.players.map((player) => {
-              const stats = getPlayerStats(game.events, player.id);
-              return (
-                <TableRow key={player.id}>
-                  <TableCell className="font-medium text-sm py-2">
-                    {player.name}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-sm tabular-nums">
-                    {stats.atBats}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-sm tabular-nums">
-                    {stats.hits}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-sm tabular-nums">
-                    {stats.rbi}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-sm tabular-nums">
-                    {stats.runs}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
 
 function InningDetails({ game }: { game: Game }) {
   const groupedEvents: Record<string, GameEvent[]> = {};
@@ -202,22 +151,52 @@ export function GameResult() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3">
+      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
           試合終了
         </h1>
       </header>
 
-      <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto">
+      <main className="w-full max-w-full mx-auto space-y-4 px-3 pt-4 pb-[max(7rem,env(safe-area-inset-bottom)+5.5rem)] sm:px-4 md:max-w-3xl md:mx-auto lg:max-w-5xl xl:max-w-6xl xl:px-8">
         <Scoreboard game={game} />
-        <BattingStats game={game} teamSide="away" />
-        <BattingStats game={game} teamSide="home" />
+        <Card className="border-border py-4 gap-2">
+          <CardHeader className="px-4 pb-0 pt-0 sm:px-6">
+            <CardTitle className="text-base">打撃成績</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              集計とイニングごとの打席結果。横にスクロールして全イニングを表示できます。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 pb-0 pt-2 sm:px-6">
+            <Tabs defaultValue="away" className="gap-3">
+              <TabsList className="h-11 w-full grid grid-cols-2 p-1 touch-manipulation sm:h-10">
+                <TabsTrigger
+                  value="away"
+                  className="truncate text-sm data-[state=active]:font-semibold"
+                >
+                  {game.teams.away.name || "先攻"}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="home"
+                  className="truncate text-sm data-[state=active]:font-semibold"
+                >
+                  {game.teams.home.name || "後攻"}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="away" className="mt-0">
+                <BattingScorebookTable game={game} teamSide="away" />
+              </TabsContent>
+              <TabsContent value="home" className="mt-0">
+                <BattingScorebookTable game={game} teamSide="home" />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
         <InningDetails game={game} />
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
-        <div className="max-w-lg mx-auto space-y-2">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto w-full max-w-full space-y-2 md:max-w-3xl lg:max-w-5xl xl:max-w-6xl">
           <Button
             variant="outline"
             className="w-full h-10"

@@ -11,7 +11,7 @@ import type {
   Team,
   TeamSide,
 } from "./types";
-import { FIELDING_POSITIONS } from "./types";
+import { AT_BAT_SCOREBOOK_SHORT, FIELDING_POSITIONS } from "./types";
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
@@ -534,12 +534,25 @@ export function getTeamStats(
   return { hits, errors };
 }
 
-export function getPlayerStats(
+export interface PlayerBattingStats {
+  atBats: number;
+  hits: number;
+  rbi: number;
+  runs: number;
+  walks: number;
+  hitByPitch: number;
+  strikeouts: number;
+  sacrifice: number;
+  plateAppearances: number;
+}
+
+/** Cumulative batting stats for one player from recorded at-bat events. */
+export function getPlayerBattingStats(
   events: GameEvent[],
   playerId: string
-): { atBats: number; hits: number; rbi: number; runs: number } {
+): PlayerBattingStats {
   const playerAtBats = events.filter(
-    (e) => e.type === "atBat" && e.batterId === playerId
+    (e) => e.type === "atBat" && e.batterId === playerId && e.result
   );
 
   const atBats = playerAtBats.filter(
@@ -569,7 +582,61 @@ export function getPlayerStats(
     );
   }, 0);
 
-  return { atBats, hits, rbi, runs };
+  return {
+    atBats,
+    hits,
+    rbi,
+    runs,
+    walks: playerAtBats.filter((e) => e.result === "walk").length,
+    hitByPitch: playerAtBats.filter((e) => e.result === "hitByPitch").length,
+    strikeouts: playerAtBats.filter((e) => e.result === "strikeout").length,
+    sacrifice: playerAtBats.filter((e) => e.result === "sacrifice").length,
+    plateAppearances: playerAtBats.length,
+  };
+}
+
+export function getPlayerStats(
+  events: GameEvent[],
+  playerId: string
+): { atBats: number; hits: number; rbi: number; runs: number } {
+  const s = getPlayerBattingStats(events, playerId);
+  return {
+    atBats: s.atBats,
+    hits: s.hits,
+    rbi: s.rbi,
+    runs: s.runs,
+  };
+}
+
+export function formatBattingAverage(hits: number, atBats: number): string {
+  if (atBats === 0) return "—";
+  return (hits / atBats).toFixed(3);
+}
+
+/**
+ * Short scorebook text for one player’s plate appearance(s) in a given inning
+ * (when that team is batting: 表 for away, 裏 for home).
+ */
+export function getAtBatInningCellLabel(
+  events: GameEvent[],
+  playerId: string,
+  teamSide: TeamSide,
+  inning: number
+): string {
+  const half: Half = teamSide === "away" ? "top" : "bottom";
+  const matches = events.filter(
+    (e) =>
+      e.type === "atBat" &&
+      e.batterId === playerId &&
+      e.team === teamSide &&
+      e.inning === inning &&
+      e.half === half &&
+      e.result
+  );
+  if (matches.length === 0) return "";
+  return matches
+    .map((e) => AT_BAT_SCOREBOOK_SHORT[e.result!])
+    .join("・");
 }
 
 export function getCurrentBatter(

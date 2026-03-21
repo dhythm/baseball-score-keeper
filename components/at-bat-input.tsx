@@ -123,7 +123,7 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
                 <Button
                   key={result}
                   variant="secondary"
-                  className="h-12 text-sm font-medium"
+                  className="h-12 text-sm font-medium touch-manipulation"
                   onClick={() => handleResultSelect(result)}
                   disabled={isDoublePlayDisabled}
                 >
@@ -159,7 +159,7 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
             <Button
               key={id}
               variant={variant}
-              className="h-12 text-sm font-semibold"
+              className="h-12 text-sm font-semibold touch-manipulation"
               onClick={() => handleCategorySelect(id)}
             >
               {label}
@@ -171,7 +171,7 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
             <Button
               key={id}
               variant={variant}
-              className="h-10 text-sm"
+              className="h-12 text-sm font-semibold touch-manipulation"
               onClick={() => handleCategorySelect(id)}
             >
               {label}
@@ -182,10 +182,10 @@ export function AtBatInput({ game, onResult, onBaseRunningEvent }: AtBatInputPro
         {hasRunners && (
           <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>
             <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full h-10 text-sm justify-between"
-              >
+            <Button
+              variant="outline"
+              className="w-full h-12 text-sm font-medium justify-between touch-manipulation"
+            >
                 <span>打席外イベント</span>
                 <ChevronDown className="h-4 w-4" />
               </Button>

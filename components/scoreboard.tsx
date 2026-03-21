@@ -31,7 +31,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
   }, [currentInning]);
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className="mx-auto w-max max-w-full overflow-x-auto rounded-lg border border-border bg-card">
       <div className="flex">
         <div className="flex-shrink-0 bg-secondary/50">
           <div className="h-8 w-20 flex items-center justify-center text-xs font-semibold text-muted-foreground border-b border-border">
@@ -47,9 +47,9 @@ export function Scoreboard({ game }: ScoreboardProps) {
 
         <div
           ref={scrollRef}
-          className="flex-1 overflow-x-auto scrollbar-hide"
+          className="min-w-0 overflow-x-auto scrollbar-hide"
         >
-          <div className="inline-flex min-w-full">
+          <div className="inline-flex">
             {Array.from({ length: inningCount }, (_, i) => {
               const inning = i + 1;
               const isCurrentInning = inning === currentInning;

@@ -147,6 +147,42 @@ export const FIELDING_POSITION_LABELS: Record<FieldingPosition, string> = {
   dh: "DH",
 };
 
+/** One or two characters for scorebook lineup column (守備位置). */
+export const FIELDING_POSITION_SCOREBOOK: Record<FieldingPosition, string> = {
+  pitcher: "投",
+  catcher: "捕",
+  first: "一",
+  second: "二",
+  third: "三",
+  short: "遊",
+  left: "左",
+  center: "中",
+  right: "右",
+  dh: "D",
+};
+
+/**
+ * Short labels for inning cells (イニングごとの打席結果).
+ * @see RESULT_LABELS for full names
+ */
+export const AT_BAT_SCOREBOOK_SHORT: Record<AtBatResult, string> = {
+  single: "1",
+  double: "2",
+  triple: "3",
+  homerun: "HR",
+  groundOut: "ゴ",
+  flyOut: "飛",
+  strikeout: "三",
+  doublePlay: "併",
+  otherOut: "出",
+  walk: "四",
+  hitByPitch: "死",
+  error: "E",
+  sacrifice: "犠",
+  fieldersChoice: "FC",
+  interference: "妨",
+};
+
 export const FIELDING_POSITIONS: FieldingPosition[] = [
   "pitcher",
   "catcher",

@@ -22,7 +22,7 @@ export function ScorebookAtBatLine({
     >
       <span className="text-primary">{p.playLine}</span>
       {p.rbiNote ? (
-        <span className="text-[9px] font-medium leading-none text-muted-foreground tabular-nums">
+        <span className="whitespace-nowrap text-[9px] font-medium leading-none text-muted-foreground tabular-nums">
           {p.rbiNote}
         </span>
       ) : null}

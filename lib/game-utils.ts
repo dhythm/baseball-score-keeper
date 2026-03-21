@@ -669,6 +669,24 @@ function detailAlreadyHasRbiNote(detail: string): boolean {
   return /打点/.test(detail);
 }
 
+/**
+ * `resultDetail` に「右安・打点1」のように手入力で連結されている場合、
+ * プレーと打点を分けて2行表示できるよう分解する（1行に詰めると狭いセルで不自然な改行になる）。
+ */
+function splitEmbeddedRbiFromDetail(detail: string): {
+  playLine: string;
+  rbiNum: number;
+} | null {
+  const m = detail.match(
+    /^(.+?)[\u30FB\u00B7\uFF65、,]\s*打点(\d+)$/
+  );
+  if (!m) return null;
+  const playLine = m[1]!.trim();
+  const rbiNum = Number.parseInt(m[2]!, 10);
+  if (!playLine || !Number.isFinite(rbiNum) || rbiNum < 1) return null;
+  return { playLine, rbiNum };
+}
+
 /** プレー表記と打点を UI で分けて表示するための構造。 */
 export type AtBatCellDisplayParts = {
   /** プレー本体（`resultDetail` または既定の短い表記） */
@@ -682,6 +700,13 @@ export function getAtBatCellDisplayParts(
 ): AtBatCellDisplayParts | null {
   if (event.type !== "atBat" || !event.result) return null;
   const d = event.resultDetail?.trim() ?? "";
+  const embedded = d ? splitEmbeddedRbiFromDetail(d) : null;
+  if (embedded) {
+    return {
+      playLine: embedded.playLine,
+      rbiNote: `打点${embedded.rbiNum}`,
+    };
+  }
   const playLine = d || AT_BAT_SCOREBOOK_SHORT[event.result];
   const rbi = countRbiFromAtBat(event);
   const rbiNote =

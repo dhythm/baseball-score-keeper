@@ -47,9 +47,9 @@ function OrderList({
   const halfForTeam = teamSide === "away" ? "top" : "bottom";
 
   const thInning =
-    "min-w-9 border-b border-border px-0.5 py-1.5 text-center text-[11px] font-bold tabular-nums sm:text-xs";
+    "min-w-[3.5rem] border-b border-border px-0.5 py-1.5 text-center text-[11px] font-bold tabular-nums sm:text-xs";
   const tdInning =
-    "min-w-9 border-b border-border px-0.5 py-1 align-middle text-center";
+    "min-w-[3.5rem] border-b border-border px-0.5 py-1 align-middle text-center";
 
   return (
     <div
@@ -66,7 +66,7 @@ function OrderList({
               #
             </th>
             <th
-              className="sticky left-8 z-20 w-28 min-w-28 border-r border-border bg-muted/50 px-1 py-1.5 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
+              className="sticky left-8 z-20 w-20 min-w-20 max-w-20 border-r border-border bg-muted/50 px-0.5 py-1.5 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
               scope="col"
             >
               選手
@@ -116,7 +116,7 @@ function OrderList({
                 </td>
                 <td
                   className={cn(
-                    "sticky left-8 z-10 w-28 min-w-28 border-r border-border bg-card px-1 py-1.5 align-top",
+                    "sticky left-8 z-10 w-20 min-w-20 max-w-20 border-r border-border bg-card px-0.5 py-1.5 align-top",
                     isCurrent && "bg-primary/10",
                     !isCurrent && isNext && "bg-muted/50"
                   )}
@@ -173,7 +173,7 @@ function OrderList({
                               key={ev.id}
                               type="button"
                               className={cn(
-                                "min-h-9 w-full max-w-[3.25rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
+                                "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
                                 ev.type === "atBat"
                                   ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                                   : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"

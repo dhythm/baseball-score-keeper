@@ -7,7 +7,7 @@ import {
 } from "./game-utils";
 
 export type GameAction =
-  | { type: "START_GAME"; totalInnings: number; awayTeam: Team; homeTeam: Team }
+  | { type: "START_GAME"; awayTeam: Team; homeTeam: Team }
   | { type: "ADD_EVENT"; event: Omit<GameEvent, "id" | "timestamp"> }
   | { type: "UNDO_LAST_EVENT" }
   | { type: "UPDATE_EVENT"; eventId: string; event: Partial<GameEvent> }
@@ -19,11 +19,7 @@ export type GameAction =
 export function gameReducer(state: Game | null, action: GameAction): Game | null {
   switch (action.type) {
     case "START_GAME": {
-      const game = createNewGame(
-        action.totalInnings,
-        action.awayTeam,
-        action.homeTeam
-      );
+      const game = createNewGame(action.awayTeam, action.homeTeam);
       return game;
     }
 

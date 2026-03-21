@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ChevronDown } from "lucide-react";
-import type { AtBatResult, ResultCategory, Game } from "@/lib/types";
+import type {
+  AtBatResult,
+  Base,
+  BaseRunningType,
+  ResultCategory,
+  Game,
+} from "@/lib/types";
 import {
   Sheet,
   SheetContent,
@@ -20,8 +26,8 @@ interface AtBatInputProps {
   onResult: (result: AtBatResult, detail?: string) => void;
   onBaseRunningEvent: (
     runnerId: string,
-    type: "steal" | "caughtStealing" | "wildPitch" | "passedBall" | "pickOff" | "balk",
-    to: "second" | "third" | "home" | "out"
+    type: BaseRunningType,
+    to: Base | "home" | "out"
   ) => void;
 }
 

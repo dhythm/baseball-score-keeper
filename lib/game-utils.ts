@@ -1,5 +1,6 @@
 import type {
   AtBatResult,
+  FieldingPosition,
   Game,
   GameEvent,
   GameState,
@@ -10,6 +11,7 @@ import type {
   Team,
   TeamSide,
 } from "./types";
+import { FIELDING_POSITIONS } from "./types";
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
@@ -25,20 +27,79 @@ export function createInitialGameState(): GameState {
   };
 }
 
-export function createNewGame(
-  totalInnings: number,
-  awayTeam: Team,
-  homeTeam: Team
-): Game {
+export function createNewGame(awayTeam: Team, homeTeam: Team): Game {
   return {
     id: generateId(),
     date: new Date().toISOString(),
-    totalInnings,
+    totalInnings: 9,
     status: "live",
     teams: { away: awayTeam, home: homeTeam },
     events: [],
     currentState: createInitialGameState(),
   };
+}
+
+/** Regulation default is 9; extends for extra innings or legacy stored values. */
+export function getEffectiveTotalInnings(game: Game): number {
+  let maxFromEvents = 0;
+  for (const e of game.events) {
+    if (e.inning > maxFromEvents) maxFromEvents = e.inning;
+  }
+  return Math.max(
+    9,
+    game.totalInnings,
+    game.currentState.inning,
+    maxFromEvents
+  );
+}
+
+/** DH may repeat; each other position at most once per team. */
+export function getSelectableFieldingPositions(
+  players: Player[],
+  excludePlayerId: string | null,
+  currentPosition: FieldingPosition | null | undefined
+): FieldingPosition[] {
+  return FIELDING_POSITIONS.filter((pos) => {
+    if (currentPosition && pos === currentPosition) return true;
+    if (pos === "dh") return true;
+    return !players.some(
+      (p) => p.id !== excludePlayerId && p.position === pos
+    );
+  });
+}
+
+/** When there is exactly one pitcher in the lineup, they are the starting pitcher. */
+export function syncStartingPitcher(team: Team): Team {
+  const pitchers = team.players.filter((p) => p.position === "pitcher");
+  if (pitchers.length === 0) {
+    return { ...team, startingPitcherId: null };
+  }
+  if (pitchers.length === 1) {
+    return { ...team, startingPitcherId: pitchers[0].id };
+  }
+  return { ...team, startingPitcherId: null };
+}
+
+export function isTeamRosterValid(team: Team): boolean {
+  if (team.players.length < 1) return false;
+  for (const p of team.players) {
+    if (!p.name.trim()) return false;
+    if (!p.position) return false;
+  }
+  const nonDh = team.players.filter((p) => p.position !== "dh");
+  const used = new Set<FieldingPosition>();
+  for (const p of nonDh) {
+    const pos = p.position!;
+    if (used.has(pos)) return false;
+    used.add(pos);
+  }
+  const pitcherCount = team.players.filter((p) => p.position === "pitcher").length;
+  if (pitcherCount > 1) return false;
+  if (pitcherCount === 1) {
+    const pitcher = team.players.find((p) => p.position === "pitcher")!;
+    if (team.startingPitcherId !== pitcher.id) return false;
+  }
+  return true;
 }
 
 export function getDefaultOuts(result: AtBatResult): number {
@@ -444,8 +505,8 @@ export function getInningScores(
     scores[inningIndex]! += event.runsScored;
   }
 
-  const awayTotal = away.reduce((sum, s) => sum + (s ?? 0), 0);
-  const homeTotal = home.reduce((sum, s) => sum + (s ?? 0), 0);
+  const awayTotal = away.reduce<number>((sum, s) => sum + (s ?? 0), 0);
+  const homeTotal = home.reduce<number>((sum, s) => sum + (s ?? 0), 0);
 
   return { away, home, awayTotal, homeTotal };
 }
@@ -531,7 +592,7 @@ export function getPlayerById(
 
 export function isGameOver(game: Game): boolean {
   const { inning, half, outs } = game.currentState;
-  const { totalInnings } = game;
+  const totalInnings = getEffectiveTotalInnings(game);
   const scores = getInningScores(game.events, totalInnings);
 
   if (inning > totalInnings) {

@@ -3,7 +3,11 @@
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { Game } from "@/lib/types";
-import { getInningScores, getTeamStats } from "@/lib/game-utils";
+import {
+  getEffectiveTotalInnings,
+  getInningScores,
+  getTeamStats,
+} from "@/lib/game-utils";
 
 interface ScoreboardProps {
   game: Game;
@@ -11,7 +15,8 @@ interface ScoreboardProps {
 
 export function Scoreboard({ game }: ScoreboardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scores = getInningScores(game.events, game.totalInnings);
+  const inningCount = getEffectiveTotalInnings(game);
+  const scores = getInningScores(game.events, inningCount);
   const awayStats = getTeamStats(game.events, "away");
   const homeStats = getTeamStats(game.events, "home");
 
@@ -45,7 +50,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
           className="flex-1 overflow-x-auto scrollbar-hide"
         >
           <div className="inline-flex min-w-full">
-            {Array.from({ length: game.totalInnings }, (_, i) => {
+            {Array.from({ length: inningCount }, (_, i) => {
               const inning = i + 1;
               const isCurrentInning = inning === currentInning;
 

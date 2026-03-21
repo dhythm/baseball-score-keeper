@@ -46,6 +46,14 @@ function OrderList({
   const inningCount = getEffectiveTotalInnings(game);
   const halfForTeam = teamSide === "away" ? "top" : "bottom";
 
+  /** sticky 列に半透明の bg-* を使うと、横スクロールの下のセルが透けて見えるため不透明にする */
+  const stickyThBg = "bg-muted";
+  const stickyTdBg = "bg-card";
+  const stickyTdCurrent =
+    "bg-[color-mix(in_oklch,var(--card)_88%,var(--primary)_12%)]";
+  const stickyTdNext =
+    "bg-[color-mix(in_oklch,var(--card)_78%,var(--muted)_22%)]";
+
   const thInning =
     "min-w-[3.5rem] border-b border-border px-0.5 py-1.5 text-center text-[11px] font-bold tabular-nums sm:text-xs";
   const tdInning =
@@ -60,13 +68,19 @@ function OrderList({
         <thead>
           <tr className="border-b border-border bg-muted/50">
             <th
-              className="sticky left-0 z-20 w-8 min-w-8 border-r border-border bg-muted/50 px-1 py-1.5 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
+              className={cn(
+                "sticky left-0 z-30 w-8 min-w-8 border-r border-border px-1 py-1.5 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs",
+                stickyThBg
+              )}
               scope="col"
             >
               #
             </th>
             <th
-              className="sticky left-8 z-20 w-20 min-w-20 max-w-20 border-r border-border bg-muted/50 px-0.5 py-1.5 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
+              className={cn(
+                "sticky left-8 z-40 w-20 min-w-20 max-w-20 border-r border-border px-0.5 py-1.5 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs",
+                stickyThBg
+              )}
               scope="col"
             >
               選手
@@ -107,18 +121,20 @@ function OrderList({
               >
                 <td
                   className={cn(
-                    "sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-card px-1 py-1.5 text-center font-mono text-xs tabular-nums text-muted-foreground",
-                    isCurrent && "bg-primary/10",
-                    !isCurrent && isNext && "bg-muted/50"
+                    "sticky left-0 z-30 w-8 min-w-8 border-r border-border px-1 py-1.5 text-center font-mono text-xs tabular-nums text-muted-foreground",
+                    isCurrent && stickyTdCurrent,
+                    !isCurrent && isNext && stickyTdNext,
+                    !isCurrent && !isNext && stickyTdBg
                   )}
                 >
                   {i + 1}
                 </td>
                 <td
                   className={cn(
-                    "sticky left-8 z-10 w-20 min-w-20 max-w-20 border-r border-border bg-card px-0.5 py-1.5 align-top",
-                    isCurrent && "bg-primary/10",
-                    !isCurrent && isNext && "bg-muted/50"
+                    "sticky left-8 z-40 w-20 min-w-20 max-w-20 border-r border-border px-0.5 py-1.5 align-top",
+                    isCurrent && stickyTdCurrent,
+                    !isCurrent && isNext && stickyTdNext,
+                    !isCurrent && !isNext && stickyTdBg
                   )}
                 >
                   <div className="flex flex-col gap-0.5">

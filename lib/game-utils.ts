@@ -591,11 +591,19 @@ export function getPlayerBattingStats(
   ).length;
 
   const rbi = events.reduce((sum, e) => {
-    if (e.batterId !== playerId) return sum;
-    return (
-      sum +
-      e.runnerMovements.filter((m) => m.to === "home" && m.isRBI).length
-    );
+    if (e.type === "atBat" && e.batterId === playerId) {
+      return (
+        sum +
+        e.runnerMovements.filter((m) => m.to === "home" && m.isRBI).length
+      );
+    }
+    if (e.type === "baseRunning" && e.rbiCreditBatterId === playerId) {
+      return (
+        sum +
+        e.runnerMovements.filter((m) => m.to === "home" && m.isRBI).length
+      );
+    }
+    return sum;
   }, 0);
 
   const runs = events.reduce((sum, e) => {

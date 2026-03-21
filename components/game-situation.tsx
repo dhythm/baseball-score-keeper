@@ -99,7 +99,7 @@ export function GameSituation({
           </div>
         </div>
 
-        {(onRecordResult || (hasRunners && onOpenBaseRunning)) && (
+        {(onRecordResult || onOpenBaseRunning) && (
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             {onRecordResult && (
               <Button
@@ -110,14 +110,18 @@ export function GameSituation({
                 結果を入力
               </Button>
             )}
-            {hasRunners && onOpenBaseRunning && (
+            {onOpenBaseRunning && (
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 w-full touch-manipulation sm:w-auto sm:min-w-[10rem]"
-                onClick={onOpenBaseRunning}
+                disabled={!hasRunners}
+                title={!hasRunners ? "ランナーがいるときに使えます" : undefined}
+                className="h-12 w-full touch-manipulation sm:w-auto sm:min-w-[10rem] disabled:opacity-60"
+                onClick={() => {
+                  if (hasRunners) onOpenBaseRunning();
+                }}
               >
-                打席外イベント
+                走塁・打席外
               </Button>
             )}
           </div>

@@ -7,7 +7,10 @@ import { GameSituation } from "@/components/game-situation";
 import { BattingOrderPanel } from "@/components/batting-order";
 import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
 import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
-import { BaseRunningEventSheet } from "@/components/base-running-event-sheet";
+import {
+  BaseRunningEventSheet,
+  type BaseRunningEventResult,
+} from "@/components/base-running-event-sheet";
 import {
   Sheet,
   SheetContent,
@@ -15,7 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
-import type { AtBatResult, RunnerMovement, BaseRunningType, Base, Half } from "@/lib/types";
+import type { AtBatResult, RunnerMovement, Base, Half } from "@/lib/types";
 import {
   getCurrentBatter,
   getDefaultMovements,
@@ -120,11 +123,8 @@ export function LiveScoring() {
     setPendingDetail(undefined);
   };
 
-  const handleBaseRunningEvent = (
-    runnerId: string,
-    type: BaseRunningType,
-    to: Base | "home" | "out"
-  ) => {
+  const handleBaseRunningEvent = (payload: BaseRunningEventResult) => {
+    const { runnerId, type, to, rbiCreditBatterId } = payload;
     const { runners, inning, half, outs } = game.currentState;
     const teamSide = half === "top" ? "away" : "home";
 
@@ -134,12 +134,20 @@ export function LiveScoring() {
     else if (runners.third === runnerId) from = "third";
     else return;
 
+    const scoresRun = to === "home" && outs < 3;
+    const isRbi = scoresRun && !!rbiCreditBatterId;
+
     const movements: RunnerMovement[] = [
-      { playerId: runnerId, from, to, isRBI: false },
+      {
+        playerId: runnerId,
+        from,
+        to,
+        isRBI: isRbi,
+      },
     ];
 
     const isOut = ["caughtStealing", "pickOff"].includes(type) || to === "out";
-    const runsScored = to === "home" && outs < 3 ? 1 : 0;
+    const runsScored = scoresRun ? 1 : 0;
     const outsInPlay = isOut ? 1 : 0;
 
     dispatch({
@@ -151,6 +159,7 @@ export function LiveScoring() {
         team: teamSide,
         baseRunningType: type,
         runnerMovements: movements,
+        rbiCreditBatterId: rbiCreditBatterId ?? undefined,
         outsInPlay,
         runsScored,
       },
@@ -224,12 +233,12 @@ export function LiveScoring() {
       <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>
         <SheetContent side="bottom" className="max-h-[70vh]">
           <SheetHeader>
-            <SheetTitle>打席外イベント</SheetTitle>
+            <SheetTitle>走塁・打席外</SheetTitle>
           </SheetHeader>
           <BaseRunningEventSheet
             game={game}
-            onEvent={(runnerId, type, to) => {
-              handleBaseRunningEvent(runnerId, type, to);
+            onEvent={(p) => {
+              handleBaseRunningEvent(p);
               setBaseRunningOpen(false);
             }}
           />

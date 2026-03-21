@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Sheet,
@@ -14,6 +15,21 @@ import type { AtBatResult, Game, Base, RunnerMovement } from "@/lib/types";
 import { getPlayerById, getDefaultMovements, getCurrentBatter } from "@/lib/game-utils";
 import { RESULT_LABELS } from "@/lib/types";
 
+type Destination = Base | "home" | "out";
+
+function defaultRbiWhenScoring(
+  result: AtBatResult,
+  from: "batter" | Base,
+  to: Destination
+): boolean {
+  if (to !== "home") return false;
+  if (from === "batter" && result === "homerun") return true;
+  if (from === "batter") return false;
+  return ["single", "double", "triple", "homerun", "sacrifice", "walk", "hitByPitch"].includes(
+    result
+  );
+}
+
 interface RunnerAdvanceSheetProps {
   game: Game;
   result: AtBatResult;
@@ -21,8 +37,6 @@ interface RunnerAdvanceSheetProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (movements: RunnerMovement[], outsInPlay: number, runsScored: number) => void;
 }
-
-type Destination = Base | "home" | "out";
 
 interface RunnerState {
   playerId: string;
@@ -47,6 +61,7 @@ export function RunnerAdvanceSheet({
   }, [result, runners, currentBatter, outs]);
 
   const [runnerStates, setRunnerStates] = useState<RunnerState[]>([]);
+  const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!open || !currentBatter) return;
@@ -95,12 +110,35 @@ export function RunnerAdvanceSheet({
     });
 
     setRunnerStates(states);
-  }, [open, game, runners, currentBatter, initialMovements]);
+    const rbi: Record<string, boolean> = {};
+    for (const r of states) {
+      if (r.to === "home") {
+        rbi[r.playerId] = defaultRbiWhenScoring(result, r.from, r.to);
+      }
+    }
+    setRbiByPlayerId(rbi);
+  }, [open, game, runners, currentBatter, initialMovements, result]);
 
   const updateRunnerDestination = (playerId: string, to: Destination) => {
-    setRunnerStates((prev) =>
-      prev.map((r) => (r.playerId === playerId ? { ...r, to } : r))
-    );
+    setRunnerStates((prev) => {
+      const old = prev.find((r) => r.playerId === playerId);
+      if (old) {
+        setRbiByPlayerId((prevRbi) => {
+          const next = { ...prevRbi };
+          if (to === "home") {
+            next[playerId] = defaultRbiWhenScoring(result, old.from, to);
+          } else {
+            delete next[playerId];
+          }
+          return next;
+        });
+      }
+      return prev.map((r) => (r.playerId === playerId ? { ...r, to } : r));
+    });
+  };
+
+  const setRbiForRunner = (playerId: string, value: boolean) => {
+    setRbiByPlayerId((prev) => ({ ...prev, [playerId]: value }));
   };
 
   const getDestinationOptions = (from: "batter" | Base): { value: Destination; label: string }[] => {
@@ -182,17 +220,22 @@ export function RunnerAdvanceSheet({
   const hasErrors = duplicates.length > 0;
 
   const handleConfirm = () => {
-    const movements: RunnerMovement[] = runnerStates.map((r) => ({
-      playerId: r.playerId,
-      from: r.from,
-      to: r.to,
-      isRBI: r.to === "home" && r.from !== "batter" && ["single", "double", "triple", "homerun", "sacrifice", "walk", "hitByPitch"].includes(result),
-    }));
-
-    const batterMovement = movements.find((m) => m.from === "batter" && m.to === "home");
-    if (batterMovement && result === "homerun") {
-      batterMovement.isRBI = true;
-    }
+    const movements: RunnerMovement[] = runnerStates.map((r) => {
+      let isRBI = false;
+      if (r.to === "home") {
+        if (r.from === "batter" && result === "homerun") {
+          isRBI = true;
+        } else {
+          isRBI = rbiByPlayerId[r.playerId] ?? defaultRbiWhenScoring(result, r.from, r.to);
+        }
+      }
+      return {
+        playerId: r.playerId,
+        from: r.from,
+        to: r.to,
+        isRBI,
+      };
+    });
 
     onConfirm(movements, preview.outsAdded, preview.runsScored);
   };
@@ -218,11 +261,16 @@ export function RunnerAdvanceSheet({
         </SheetHeader>
 
         <div className="py-4 space-y-6">
-          <div className="bg-secondary/50 rounded-lg px-3 py-2">
-            <span className="text-sm text-muted-foreground">打席結果: </span>
-            <span className="text-sm font-semibold text-foreground">
-              {RESULT_LABELS[result]}
-            </span>
+          <div className="bg-secondary/50 rounded-lg px-3 py-2 space-y-1">
+            <div>
+              <span className="text-sm text-muted-foreground">打席結果: </span>
+              <span className="text-sm font-semibold text-foreground">
+                {RESULT_LABELS[result]}
+              </span>
+            </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              ホームインした走者ごとに、打点に含めるかチェックで調整できます。
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -249,6 +297,21 @@ export function RunnerAdvanceSheet({
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
+                {runner.to === "home" && !(runner.from === "batter" && result === "homerun") && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <Checkbox
+                      id={`rbi-${runner.playerId}`}
+                      checked={rbiByPlayerId[runner.playerId] ?? false}
+                      onCheckedChange={(v) => setRbiForRunner(runner.playerId, !!v)}
+                    />
+                    <Label
+                      htmlFor={`rbi-${runner.playerId}`}
+                      className="cursor-pointer text-xs font-normal leading-snug text-muted-foreground"
+                    >
+                      この得点を打者の打点に含める
+                    </Label>
+                  </div>
+                )}
               </div>
             ))}
           </div>

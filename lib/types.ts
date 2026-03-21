@@ -79,6 +79,8 @@ export interface GameEvent {
   resultDetail?: string;
   runnerMovements: RunnerMovement[];
   baseRunningType?: BaseRunningType;
+  /** 走塁イベントで得点を打点として記録する打者（攻撃チームの選手 id） */
+  rbiCreditBatterId?: string;
   outsInPlay: number;
   runsScored: number;
   timestamp: string;

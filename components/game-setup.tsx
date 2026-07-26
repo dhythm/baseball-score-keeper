@@ -1,10 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
-import { cn } from "@/lib/utils";
+import { FeedbackDialog } from "@/components/feedback-dialog";
+import { GameHistory } from "@/components/game-history";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,10 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowUp, ArrowDown, GripVertical, X, Plus } from "lucide-react";
 import { useGame } from "@/lib/game-context";
-import type { FieldingPosition, Player, Team } from "@/lib/types";
-import { FIELDING_POSITION_LABELS } from "@/lib/types";
 import {
   generateId,
   getSelectableFieldingPositions,
@@ -23,7 +20,11 @@ import {
   syncNonLineupStartingPitcher,
   syncStartingPitcher,
 } from "@/lib/game-utils";
-import { GameHistory } from "@/components/game-history";
+import type { FieldingPosition, Player, Team } from "@/lib/types";
+import { FIELDING_POSITION_LABELS } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
+import { useId, useState } from "react";
 
 const emptyTeam = (): Team => ({
   name: "",
@@ -83,7 +84,7 @@ function TeamSetupForm({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const lineupPitcherCount = team.players.filter(
-    (p) => p.position === "pitcher"
+    (p) => p.position === "pitcher",
   ).length;
 
   const addPlayer = () => {
@@ -133,7 +134,7 @@ function TeamSetupForm({
     onTeamChange({
       ...team,
       benchPlayers: (team.benchPlayers ?? []).filter(
-        (player) => player.id !== id
+        (player) => player.id !== id,
       ),
     });
   };
@@ -169,16 +170,19 @@ function TeamSetupForm({
     onTeamChange(syncStartingPitcher({ ...team, players: reorderedPlayers }));
   };
 
-  const updatePlayerPosition = (playerId: string, position: FieldingPosition) => {
+  const updatePlayerPosition = (
+    playerId: string,
+    position: FieldingPosition,
+  ) => {
     const players = team.players.map((p) =>
-      p.id === playerId ? { ...p, position } : p
+      p.id === playerId ? { ...p, position } : p,
     );
     onTeamChange(syncStartingPitcher({ ...team, players }));
   };
 
   const updatePlayerName = (playerId: string, name: string) => {
     const players = team.players.map((p) =>
-      p.id === playerId ? { ...p, name } : p
+      p.id === playerId ? { ...p, name } : p,
     );
     let next: Team = { ...team, players };
     if (team.startingPitcherId === playerId) {
@@ -192,28 +196,25 @@ function TeamSetupForm({
     if (
       team.startingPitcherId &&
       team.players.some(
-        (p) =>
-          p.id === team.startingPitcherId && p.position === "pitcher"
+        (p) => p.id === team.startingPitcherId && p.position === "pitcher",
       )
     ) {
       onTeamChange({
         ...team,
         startingPitcherName: value,
         players: team.players.map((p) =>
-          p.id === team.startingPitcherId ? { ...p, name: value } : p
+          p.id === team.startingPitcherId ? { ...p, name: value } : p,
         ),
       });
       return;
     }
-    onTeamChange(
-      syncNonLineupStartingPitcher(team, value, generateId())
-    );
+    onTeamChange(syncNonLineupStartingPitcher(team, value, generateId()));
   };
 
   const newRowSelectable = getSelectableFieldingPositions(
     team.players,
     null,
-    newPlayerPosition
+    newPlayerPosition,
   );
 
   return (
@@ -318,7 +319,8 @@ function TeamSetupForm({
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            DH 以外の守備位置はチーム内で重複できません。スマホでは各行の上下矢印、キーボードでは行左の{" "}
+            DH
+            以外の守備位置はチーム内で重複できません。スマホでは各行の上下矢印、キーボードでは行左の{" "}
             <GripVertical className="inline h-3.5 w-3.5 align-text-bottom text-muted-foreground" />{" "}
             にフォーカスして上下矢印キー、マウスではドラッグで並べ替えられます。
           </p>
@@ -330,7 +332,7 @@ function TeamSetupForm({
               const rowSelectable = getSelectableFieldingPositions(
                 team.players,
                 player.id,
-                player.position
+                player.position,
               );
               return (
                 <li
@@ -360,7 +362,7 @@ function TeamSetupForm({
                         const payload = String(index);
                         e.dataTransfer.setData(
                           "application/x-player-index",
-                          payload
+                          payload,
                         );
                         e.dataTransfer.setData("text/plain", payload);
                         e.currentTarget
@@ -369,7 +371,9 @@ function TeamSetupForm({
                       }}
                       onDragEnd={(e) => {
                         setDraggingIndex(null);
-                        e.currentTarget.closest("li")?.removeAttribute("data-dragging");
+                        e.currentTarget
+                          .closest("li")
+                          ?.removeAttribute("data-dragging");
                       }}
                       className="flex size-11 touch-none shrink-0 cursor-grab select-none items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground active:cursor-grabbing"
                       role="button"
@@ -410,7 +414,7 @@ function TeamSetupForm({
                         size="sm"
                         className={cn(
                           "h-11 w-[7.5rem] shrink-0 bg-background px-2 text-xs",
-                          draggingIndex !== null && "pointer-events-none"
+                          draggingIndex !== null && "pointer-events-none",
                         )}
                         aria-label={`打順${player.order}の守備位置`}
                       >
@@ -427,7 +431,7 @@ function TeamSetupForm({
                     <div
                       className={cn(
                         "flex gap-1 shrink-0",
-                        draggingIndex !== null && "pointer-events-none"
+                        draggingIndex !== null && "pointer-events-none",
                       )}
                     >
                       <Button
@@ -573,11 +577,12 @@ export function GameSetup() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
           スコアブック
         </h1>
+        <FeedbackDialog />
       </header>
 
       <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
@@ -599,9 +604,6 @@ export function GameSetup() {
           >
             プリセット（両チーム9人・サンプル名）
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            先攻：イーグルス／選手1〜9、後攻：ライオンズ／打者1〜9（投手〜右翼）
-          </p>
         </div>
 
         <Card className="gap-3 border-border py-4">

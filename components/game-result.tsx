@@ -32,6 +32,7 @@ import {
 } from "@/lib/export/game-log";
 import { getPitcherStats } from "@/lib/domain/pitching";
 import { GameHistory } from "@/components/game-history";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -260,11 +261,12 @@ export function GameResult() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
         <h1 className="flex items-center gap-2 text-lg font-extrabold">
           <span className="text-xl">&#9918;</span>
           試合終了
         </h1>
+        <FeedbackDialog />
       </header>
 
       <main className="mx-auto w-full max-w-5xl space-y-4 px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-6">

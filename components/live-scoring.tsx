@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatViolationMessage } from "@/lib/app-state/feedback";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 
 export function LiveScoring() {
   const { game, dispatch, addEvent } = useGame();
@@ -176,6 +177,7 @@ export function LiveScoring() {
           スコアブック
         </h1>
         <div className="flex shrink-0 items-center gap-0.5">
+          <FeedbackDialog />
           <Button
             type="button"
             variant="ghost"

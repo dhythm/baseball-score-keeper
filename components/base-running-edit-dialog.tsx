@@ -47,13 +47,6 @@ export function BaseRunningEditDialog({
   const baseRun = event?.kind === "baseRunning" ? event : undefined;
   const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
-  const halfLabel =
-    timelineEntry?.half === "top"
-      ? "表"
-      : timelineEntry?.half === "bottom"
-        ? "裏"
-        : "";
-
   const handleDelete = () => {
     if (!eventId) return;
     dispatch({ type: "DELETE_EVENT", eventId });
@@ -89,12 +82,8 @@ export function BaseRunningEditDialog({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>打席外イベント</DialogTitle>
-            <DialogDescription>
-              {baseRun && (
-                <>
-                  {timelineEntry?.inning}回{halfLabel}のイベントです。
-                </>
-              )}
+            <DialogDescription className="sr-only">
+              打席外イベントを編集
             </DialogDescription>
           </DialogHeader>
 

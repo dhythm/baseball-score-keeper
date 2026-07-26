@@ -56,10 +56,6 @@ function TeamSetupForm({
   const [newBenchPlayerName, setNewBenchPlayerName] = useState("");
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
-  const lineupPitcherCount = team.players.filter(
-    (p) => p.position === "pitcher"
-  ).length;
-
   const addPlayer = () => {
     if (!newPlayerName.trim() || !newPlayerPosition) return;
     const newPlayer: Player = {
@@ -229,11 +225,6 @@ function TeamSetupForm({
             className="h-11 bg-background text-base"
             autoComplete="off"
           />
-          <p className="text-xs text-muted-foreground mt-1.5">
-            {lineupPitcherCount === 1
-              ? "打順に投手 (P) がいるため、氏名はその打順と連動します（どちらかを編集すると両方更新されます）。"
-              : "打順に投手がいない場合（DH 制で投手が打たないなど）は、ここに先発投手の氏名を入力してください。"}
-          </p>
         </div>
 
         <div>
@@ -291,12 +282,6 @@ function TeamSetupForm({
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            DH
-            以外の守備位置はチーム内で重複できません。スマホでは各行の上下矢印、キーボードでは行左の{" "}
-            <GripVertical className="inline h-3.5 w-3.5 align-text-bottom text-muted-foreground" />{" "}
-            にフォーカスして上下矢印キー、マウスではドラッグで並べ替えられます。
-          </p>
         </div>
 
         {team.players.length > 0 && (
@@ -448,14 +433,9 @@ function TeamSetupForm({
         )}
 
         <div className="space-y-3 border-t border-border pt-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">
-              控え選手
-            </label>
-            <p className="mt-1 text-xs text-muted-foreground">
-              試合中の代打・代走・守備交代で選択できます。
-            </p>
-          </div>
+          <label className="text-sm font-medium text-muted-foreground">
+            控え選手
+          </label>
           <div className="flex gap-2">
             <Input
               value={newBenchPlayerName}
@@ -566,26 +546,14 @@ export function GameSetup() {
 
       <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
         <GameHistory />
-        <div>
-          <h2 className="text-lg font-bold text-foreground">
-            新しい試合を設定
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            イニング数と両チームの選手を登録して試合を始めます。
-          </p>
-        </div>
+        <h2 className="text-lg font-bold text-foreground">新しい試合を設定</h2>
         <section
           aria-labelledby="setup-preset-title"
           className="space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
         >
-          <div>
-            <h2 id="setup-preset-title" className="text-sm font-bold">
-              入力プリセット
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              チーム名と9人分の打順・守備位置をまとめて入力します。
-            </p>
-          </div>
+          <h2 id="setup-preset-title" className="text-sm font-bold">
+            入力プリセット
+          </h2>
           <Button
             type="button"
             variant="outline"
@@ -638,9 +606,6 @@ export function GameSetup() {
                 )}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              同点の場合は自動で延長します。
-            </p>
           </CardContent>
         </Card>
 

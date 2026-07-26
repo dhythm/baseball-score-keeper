@@ -327,16 +327,13 @@ export function RunnerAdvanceSheet({
         </SheetHeader>
 
         <div className="space-y-6 px-4 py-5 sm:px-5">
-          <div className="space-y-1 rounded-xl bg-secondary/70 px-4 py-3">
+          <div className="rounded-xl bg-secondary/70 px-4 py-3">
             <div>
               <span className="text-sm text-muted-foreground">打席結果: </span>
               <span className="text-sm font-semibold text-foreground">
                 {RESULT_LABELS[result]}
               </span>
             </div>
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              ホームインした走者ごとに、打点に含めるかチェックで調整できます。
-            </p>
           </div>
 
           <div className="space-y-4">

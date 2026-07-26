@@ -333,8 +333,8 @@ export function LiveScoring() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>試合を終了しますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              試合を終了すると、結果画面に移動します。後から修正することも可能です。
+            <AlertDialogDescription className="sr-only">
+              試合終了の確認
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">

@@ -75,13 +75,6 @@ export function AtBatResultDialog({
   const atBat = event?.kind === "atBat" ? event : undefined;
   const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
-  const halfLabel =
-    timelineEntry?.half === "top"
-      ? "表"
-      : timelineEntry?.half === "bottom"
-        ? "裏"
-        : "";
-
   const handleFlowSubmit = (result: AtBatResult, detail?: string) => {
     if (mode === "new") {
       onNewResult?.(result, detail);
@@ -138,15 +131,6 @@ export function AtBatResultDialog({
       : game.currentState.outs;
 
   const title = mode === "edit" ? "打席結果の修正" : "打席結果の入力";
-  const description =
-    mode === "edit" && atBat ? (
-      <>
-        {timelineEntry?.inning}回{halfLabel}
-        の打席を変更します。ボタンだけで表記を選べます。
-      </>
-    ) : (
-      <>種類を選び、続いて打球の方向や守備位置を選んでください。</>
-    );
 
   return (
     <>
@@ -157,7 +141,9 @@ export function AtBatResultDialog({
         >
           <DialogHeader className="relative shrink-0 border-b border-border bg-card px-5 py-4 pr-16 text-left sm:border-0 sm:bg-transparent sm:p-0 sm:pr-10">
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+            <DialogDescription className="sr-only">
+              打席結果を選択
+            </DialogDescription>
             <DialogClose
               className="absolute right-2.5 top-2.5 flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:-right-2 sm:-top-2"
               aria-label="打席結果入力を閉じる"

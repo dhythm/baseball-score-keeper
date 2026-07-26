@@ -271,11 +271,6 @@ export function BattingScorebookTable({
           </tbody>
         </table>
       </div>
-      <p className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
-        列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振
-        犠=犠打 飛=犠飛 率=打率。
-        右側の数字はイニング（先攻は各回の表・後攻は裏の結果）。イニング欄はプレー表記の下に打点（自動）を小さく表示します。
-      </p>
     </div>
   );
 }

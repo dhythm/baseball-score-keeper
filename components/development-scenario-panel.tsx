@@ -40,7 +40,7 @@ export function DevelopmentScenarioPanel() {
   };
   return (
     <Card className="gap-3 border-dashed border-amber-500/70 bg-amber-50/70 py-4 dark:bg-amber-950/20">
-      <CardHeader className="space-y-2 px-4 py-0">
+      <CardHeader className="px-4 py-0">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Beaker className="h-4 w-4 text-amber-700" aria-hidden="true" />
@@ -50,9 +50,6 @@ export function DevelopmentScenarioPanel() {
             開発時のみ
           </span>
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          この領域はローカルの開発サーバーでだけ表示され、本番環境には表示されません。
-        </p>
       </CardHeader>
       <CardContent className="px-4">
         <div className="space-y-2">
@@ -84,8 +81,7 @@ export function DevelopmentScenarioPanel() {
               className="rounded-lg border border-amber-500/30 bg-background p-3"
               aria-live="polite"
             >
-              <p className="text-sm leading-relaxed">{scenario.description}</p>
-              <p className="mt-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
                 確認ポイント: {scenario.expectation}
               </p>
             </div>

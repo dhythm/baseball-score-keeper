@@ -86,9 +86,6 @@ export function GameHistory() {
             id="saved-game-list"
             className="space-y-2 border-t border-border px-4 py-4"
           >
-            <p className="text-xs text-muted-foreground">
-              保存済みの試合を選ぶと、その試合画面へ移動します。
-            </p>
             {games.slice(0, 10).map((storedGame) => {
               const snapshot = replay(
                 storedGame.events,

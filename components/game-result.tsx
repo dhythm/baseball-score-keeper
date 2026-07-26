@@ -3,13 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
@@ -157,9 +151,6 @@ function PitchingSummary({ game }: { game: AppGame }) {
     <Card className="gap-3 border-border py-4">
       <CardHeader className="px-4 py-0">
         <CardTitle className="text-base">投手成績</CardTitle>
-        <CardDescription className="text-xs">
-          記録された投手交代ごとに集計しています。
-        </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-2">
         {(["away", "home"] as const).map((side) => {
@@ -276,9 +267,6 @@ export function GameResult() {
         <Card className="border-border py-4 gap-2">
           <CardHeader className="px-4 pb-0 pt-0 sm:px-6">
             <CardTitle className="text-base">打撃成績</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              集計とイニングごとの打席結果。横にスクロールして全イニングを表示できます。
-            </CardDescription>
           </CardHeader>
           <CardContent className="px-4 pb-0 pt-2 sm:px-6">
             <Tabs defaultValue="away" className="gap-3">

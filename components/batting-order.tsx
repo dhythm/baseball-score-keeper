@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { TeamSide } from "@/lib/domain/types";
@@ -268,9 +262,6 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
     <Card className="border-border py-4 gap-3">
       <CardHeader className="px-4 py-0 sm:px-6">
         <CardTitle className="text-base">打順</CardTitle>
-        <CardDescription className="text-xs sm:text-sm">
-          列は1回〜のイニング（先攻は表・後攻は裏）。打点は得点が付いた打席で2行目に表示されます。セルをタップして修正できます。
-        </CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-0 pt-0 sm:px-6">
         <div className="hidden min-w-0 min-[1800px]:grid min-[1800px]:grid-cols-2 min-[1800px]:gap-6">

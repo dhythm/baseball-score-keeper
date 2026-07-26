@@ -36,6 +36,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EventIntegrityAlert } from "@/components/event-integrity-alert";
+import { PrintableScorebook } from "@/components/printable-scorebook";
+import { PrintScorebookButton } from "@/components/print-scorebook-button";
+import { DisplaySettingsDialog } from "@/components/display-settings-dialog";
+import { getHalfInningLeftOnBase, getTeamSummary } from "@/lib/domain/stats";
+import { formatFieldingPosition } from "@/lib/domain/notation";
 
 function InningDetails({ game }: { game: AppGame }) {
   const groupedEntries: Record<string, TimelineEntry[]> = {};
@@ -55,6 +60,12 @@ function InningDetails({ game }: { game: AppGame }) {
     if (aInning !== bInning) return parseInt(aInning) - parseInt(bInning);
     return aHalf === "top" ? -1 : 1;
   });
+  const leftOnBaseByHalf = new Map(
+    getHalfInningLeftOnBase(game.timeline).map((summary) => [
+      `${summary.inning}-${summary.half}`,
+      summary.leftOnBase,
+    ])
+  );
 
   return (
     <Card className="border-border">
@@ -75,6 +86,9 @@ function InningDetails({ game }: { game: AppGame }) {
               <AccordionItem key={key} value={key}>
                 <AccordionTrigger className="px-4 text-sm">
                   {inning}回{half === "top" ? "表" : "裏"} ({teamName})
+                  {leftOnBaseByHalf.has(key)
+                    ? `・残塁${leftOnBaseByHalf.get(key)}`
+                    : ""}
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-2">
@@ -142,6 +156,55 @@ function InningDetails({ game }: { game: AppGame }) {
             );
           })}
         </Accordion>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamSummary({ game }: { game: AppGame }) {
+  return (
+    <Card className="gap-3 border-border py-4">
+      <CardHeader className="px-4 py-0">
+        <CardTitle className="text-base">チーム集計</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-2">
+        {(["away", "home"] as const).map((side) => {
+          const summary = getTeamSummary(game.timeline, side);
+          const errorDetail =
+            summary.errorDetails.length === 0
+              ? "なし"
+              : summary.errorDetails
+                  .map(({ position, count }) =>
+                    position === "unknown"
+                      ? `位置不明 ${count}`
+                      : `${formatFieldingPosition(position)} ${count}`
+                  )
+                  .join("、");
+          return (
+            <div key={side} className="rounded-lg border border-border p-3">
+              <p className="truncate text-sm font-semibold">
+                {game.config.teams[side].name}
+              </p>
+              <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">盗塁</dt>
+                  <dd className="font-mono font-semibold">
+                    {summary.stolenBases}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">残塁</dt>
+                  <dd className="font-mono font-semibold">
+                    {summary.leftOnBase}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-muted-foreground">
+                失策内訳: {errorDetail}
+              </p>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -215,7 +278,7 @@ export function GameResult() {
   };
 
   const handleContinueGame = () => {
-    dispatch({ type: "RESUME_GAME" });
+    if (!dispatch({ type: "RESUME_GAME" })) return;
   };
 
   const handleShare = async () => {
@@ -249,15 +312,18 @@ export function GameResult() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm print:hidden">
         <h1 className="flex items-center gap-2 text-lg font-extrabold">
           <span className="text-xl">&#9918;</span>
           試合終了
         </h1>
-        <FeedbackDialog />
+        <div className="flex items-center gap-0.5">
+          <FeedbackDialog />
+          <DisplaySettingsDialog />
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl space-y-4 px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-6">
+      <main className="mx-auto w-full max-w-5xl space-y-4 px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-6 print:hidden">
         <EventIntegrityAlert game={game} />
         <Scoreboard game={game} />
         {game.currentState.gameEndReasonDetail && (
@@ -266,6 +332,7 @@ export function GameResult() {
           </p>
         )}
         <PitchingSummary game={game} />
+        <TeamSummary game={game} />
         <Card className="border-border py-4 gap-2">
           <CardHeader className="px-4 pb-0 pt-0 sm:px-6">
             <CardTitle className="text-base">打撃成績</CardTitle>
@@ -312,9 +379,10 @@ export function GameResult() {
               <Download className="mr-2 h-4 w-4" />
               JSON
             </Button>
+            <PrintScorebookButton />
             <Button
               variant="outline"
-              className="col-span-2 h-11 sm:col-span-1"
+              className="h-11"
               onClick={handleContinueGame}
             >
               <Edit className="mr-2 h-4 w-4" />
@@ -330,6 +398,7 @@ export function GameResult() {
           </div>
         </section>
       </main>
+      <PrintableScorebook game={game} />
 
       <AlertDialog open={showNewGameDialog} onOpenChange={setShowNewGameDialog}>
         <AlertDialogContent>

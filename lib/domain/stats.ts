@@ -1,6 +1,7 @@
 import type {
   AtBatResult,
   BaseRunningEvent,
+  FieldingPosition,
   Half,
   SubstitutionRole,
   TeamSide,
@@ -17,6 +18,24 @@ export interface InningScores {
 export interface TeamStats {
   hits: number;
   errors: number;
+}
+
+interface FieldingErrorDetail {
+  position: FieldingPosition | "unknown";
+  count: number;
+}
+
+export interface HalfInningLeftOnBase {
+  inning: number;
+  half: Half;
+  team: TeamSide;
+  leftOnBase: number;
+}
+
+export interface TeamSummary {
+  stolenBases: number;
+  leftOnBase: number;
+  errorDetails: FieldingErrorDetail[];
 }
 
 export interface PlayerBattingStats {
@@ -122,6 +141,104 @@ export function getTeamStats(
   }
 
   return { hits, errors };
+}
+
+const FIELDING_POSITION_ORDER: readonly (FieldingPosition | "unknown")[] = [
+  "pitcher",
+  "catcher",
+  "first",
+  "second",
+  "third",
+  "short",
+  "left",
+  "center",
+  "right",
+  "dh",
+  "unknown",
+];
+
+/**
+ * Counts runners stranded when a half inning ends. A batter-runner is LOB
+ * when another runner makes the third out, matching official scorer practice.
+ */
+export function getHalfInningLeftOnBase(
+  timeline: readonly TimelineEntry[]
+): HalfInningLeftOnBase[] {
+  return timeline.flatMap((entry) => {
+    if (!entry.applied || entry.outsAfter !== 3) return [];
+
+    const candidateIds = new Set(
+      Object.values(entry.before.runners).filter(
+        (playerId): playerId is string => playerId !== null
+      )
+    );
+    const outIds = new Set(
+      entry.event.kind === "atBat" || entry.event.kind === "baseRunning"
+        ? entry.event.movements
+            .filter((movement) => movement.to === "out")
+            .map((movement) => movement.playerId)
+        : []
+    );
+    if (entry.event.kind === "atBat" && !outIds.has(entry.event.batterId)) {
+      candidateIds.add(entry.event.batterId);
+    }
+    for (const movement of entry.scoringMovements) {
+      candidateIds.delete(movement.playerId);
+    }
+    for (const playerId of outIds) candidateIds.delete(playerId);
+
+    return [
+      {
+        inning: entry.inning,
+        half: entry.half,
+        team: entry.team,
+        leftOnBase: candidateIds.size,
+      },
+    ];
+  });
+}
+
+export function getTeamSummary(
+  timeline: readonly TimelineEntry[],
+  teamSide: TeamSide
+): TeamSummary {
+  let stolenBases = 0;
+  const errorCountByPosition = new Map<FieldingPosition | "unknown", number>();
+
+  for (const entry of timeline) {
+    if (!entry.applied) continue;
+    if (
+      entry.team === teamSide &&
+      entry.event.kind === "baseRunning" &&
+      entry.event.type === "steal"
+    ) {
+      stolenBases += entry.event.movements.filter(
+        (movement) => movement.to !== "out"
+      ).length;
+    }
+    if (
+      entry.team !== teamSide &&
+      entry.event.kind === "atBat" &&
+      entry.event.result === "error"
+    ) {
+      const position = entry.event.battedBall?.position ?? "unknown";
+      errorCountByPosition.set(
+        position,
+        (errorCountByPosition.get(position) ?? 0) + 1
+      );
+    }
+  }
+
+  return {
+    stolenBases,
+    leftOnBase: getHalfInningLeftOnBase(timeline)
+      .filter((inning) => inning.team === teamSide)
+      .reduce((sum, inning) => sum + inning.leftOnBase, 0),
+    errorDetails: FIELDING_POSITION_ORDER.flatMap((position) => {
+      const count = errorCountByPosition.get(position);
+      return count ? [{ position, count }] : [];
+    }),
+  };
 }
 
 export function getPlayerBattingStats(

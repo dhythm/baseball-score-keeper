@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import type { AtBatResult, FieldingPosition } from "@/lib/domain/types";
+import type {
+  AtBatResult,
+  BattedBall,
+  FieldingPosition,
+} from "@/lib/domain/types";
 import {
   FIELDING_POSITIONS_FOR_PLAY,
   buildHitDetail,
@@ -61,7 +65,13 @@ export type AtBatResultFlowProps = {
   /** ダイアログを開くたびに変えるとステップがリセットされる */
   resetToken: number;
   outs: number;
-  onSubmit: (result: AtBatResult, detail?: string) => void;
+  hasTagUpCandidate?: boolean;
+  canRecordDoublePlay?: boolean;
+  onSubmit: (
+    result: AtBatResult,
+    detail?: string,
+    battedBall?: BattedBall
+  ) => void;
 };
 
 type Step =
@@ -70,6 +80,7 @@ type Step =
   | { id: "hitDir"; hit: "single" | "double" | "triple" | "homerun" }
   | { id: "outKind" }
   | { id: "outPos"; out: AtBatResult }
+  | { id: "flyDepth"; position: FieldingPosition; detail: string }
   | { id: "walk" }
   | { id: "errorPos" }
   | { id: "otherKind" }
@@ -77,10 +88,16 @@ type Step =
   | { id: "sacrificeFlyPos" }
   | { id: "fcPos" };
 
-function PositionGrid({ onPick }: { onPick: (pos: FieldingPosition) => void }) {
+function PositionGrid({
+  onPick,
+  positions = FIELDING_POSITIONS_FOR_PLAY,
+}: {
+  onPick: (pos: FieldingPosition) => void;
+  positions?: readonly FieldingPosition[];
+}) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-3">
-      {FIELDING_POSITIONS_FOR_PLAY.map((pos) => (
+      {positions.map((pos) => (
         <Button
           key={pos}
           type="button"
@@ -98,6 +115,8 @@ function PositionGrid({ onPick }: { onPick: (pos: FieldingPosition) => void }) {
 export function AtBatResultFlow({
   resetToken,
   outs,
+  hasTagUpCandidate = false,
+  canRecordDoublePlay = true,
   onSubmit,
 }: AtBatResultFlowProps) {
   const [step, setStep] = useState<Step>({ id: "category" });
@@ -120,6 +139,7 @@ export function AtBatResultFlow({
       }
       if (s.id === "hitDir") return { id: "hitKind" };
       if (s.id === "outPos") return { id: "outKind" };
+      if (s.id === "flyDepth") return { id: "outPos", out: "flyOut" };
       if (s.id === "sacrificeKind" || s.id === "fcPos")
         return { id: "otherKind" };
       if (s.id === "sacrificeFlyPos") return { id: "sacrificeKind" };
@@ -154,7 +174,8 @@ export function AtBatResultFlow({
   };
 
   const handleOutKindSelect = (row: (typeof OUT_KINDS)[number]) => {
-    if (row.result === "doublePlay" && outs >= 2) return;
+    if (row.result === "doublePlay" && (outs >= 2 || !canRecordDoublePlay))
+      return;
     if (!row.needsField) {
       if (row.result === "otherOut") {
         setStep({ id: "outPos", out: "otherOut" });
@@ -170,8 +191,15 @@ export function AtBatResultFlow({
     if (step.id !== "outPos") return;
     const { out } = step;
     if (out === "groundOut") onSubmit("groundOut", buildGroundOutDetail(pos));
-    else if (out === "flyOut") onSubmit("flyOut", buildFlyOutDetail(pos));
-    else if (out === "doublePlay")
+    else if (out === "flyOut") {
+      const detail = buildFlyOutDetail(pos);
+      const isOutfield = pos === "left" || pos === "center" || pos === "right";
+      if (isOutfield && hasTagUpCandidate) {
+        setStep({ id: "flyDepth", position: pos, detail });
+      } else {
+        onSubmit("flyOut", detail, { position: pos, type: "fly" });
+      }
+    } else if (out === "doublePlay")
       onSubmit("doublePlay", buildDoublePlayDetail(pos));
   };
 
@@ -231,6 +259,8 @@ export function AtBatResultFlow({
         return step.out === "otherOut"
           ? "その他アウト"
           : "打球の方向・守備位置";
+      case "flyDepth":
+        return "フライの深さ";
       case "walk":
         return "四死球";
       case "errorPos":
@@ -336,6 +366,45 @@ export function AtBatResultFlow({
     );
   }
 
+  if (step.id === "flyDepth") {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11"
+            onClick={goBack}
+            aria-label="打球方向へ戻る"
+          >
+            <ChevronLeft className="size-5" />
+          </Button>
+          <p className="text-sm font-semibold">{titleForStep()}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {(["shallow", "deep"] as const).map((depth) => (
+            <Button
+              key={depth}
+              type="button"
+              variant={depth === "deep" ? "default" : "secondary"}
+              className="h-12 text-sm font-semibold"
+              onClick={() =>
+                onSubmit("flyOut", step.detail, {
+                  position: step.position,
+                  type: "fly",
+                  depth,
+                })
+              }
+            >
+              {depth === "deep" ? "深い" : "浅い"}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (step.id === "hitDir") {
     return (
       <div className="space-y-3">
@@ -375,7 +444,9 @@ export function AtBatResultFlow({
         </div>
         <div className="grid grid-cols-2 gap-2">
           {OUT_KINDS.map((row) => {
-            const disabled = row.result === "doublePlay" && outs >= 2;
+            const disabled =
+              row.result === "doublePlay" &&
+              (outs >= 2 || !canRecordDoublePlay);
             return (
               <Button
                 key={row.result}
@@ -388,7 +459,7 @@ export function AtBatResultFlow({
                 {row.label}
                 {disabled && (
                   <span className="ml-1 text-[10px] text-muted-foreground">
-                    (2アウト)
+                    ({outs >= 2 ? "2アウト" : "一塁走者なし"})
                   </span>
                 )}
               </Button>
@@ -448,7 +519,14 @@ export function AtBatResultFlow({
           </Button>
           <span className="text-sm font-semibold">{titleForStep()}</span>
         </div>
-        <PositionGrid onPick={handleOutPos} />
+        <PositionGrid
+          onPick={handleOutPos}
+          positions={
+            step.out === "doublePlay"
+              ? ["pitcher", "catcher", "first", "second", "third", "short"]
+              : undefined
+          }
+        />
       </div>
     );
   }

@@ -5,7 +5,11 @@ import type {
   TimelineEntry,
   Violation,
 } from "../domain/types";
-import type { PersistedGameV2 } from "../storage/local-storage";
+import type {
+  DeletedEvent,
+  GameRevision,
+  PersistedGameV2,
+} from "../storage/local-storage";
 
 type AppGameStatus = "live" | "finished";
 
@@ -20,8 +24,9 @@ export interface AppGame {
   date: string;
   config: GameConfig;
   events: GameEvent[];
-  /** One-step, in-memory redo buffer. It is intentionally not persisted. */
-  redoEvent: GameEvent | null;
+  deletedEvents: DeletedEvent[];
+  undoHistory: GameRevision[];
+  redoHistory: GameRevision[];
   manualEnded: boolean;
   status: AppGameStatus;
   currentState: Snapshot;
@@ -49,6 +54,8 @@ export type GameAction =
       event: GameEvent;
     }
   | { type: "DELETE_EVENT"; eventId: string }
+  | { type: "RESTORE_DELETED_EVENT"; eventId: string }
+  | { type: "RESTORE_HALF_INNING_START" }
   | { type: "UNDO_LAST_EVENT" }
   | { type: "REDO_LAST_EVENT" }
   | { type: "RESUME_GAME" }

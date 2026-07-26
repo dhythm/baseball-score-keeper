@@ -19,6 +19,7 @@ import { getPlayerInningEntries } from "@/lib/app-state/timeline-selectors";
 interface BattingScorebookTableProps {
   game: AppGame;
   teamSide: TeamSide;
+  printMode?: boolean;
 }
 
 function positionLabel(position: FieldingPosition | null | undefined): string {
@@ -29,6 +30,7 @@ function positionLabel(position: FieldingPosition | null | undefined): string {
 export function BattingScorebookTable({
   game,
   teamSide,
+  printMode = false,
 }: BattingScorebookTableProps) {
   const team = game.config.teams[teamSide];
   const innings = getEffectiveInningCount(game);
@@ -87,8 +89,17 @@ export function BattingScorebookTable({
     "text-center font-mono text-[10px] leading-tight tabular-nums px-1 py-1.5 align-top text-primary sm:text-xs max-w-[3.5rem]";
 
   return (
-    <div className="isolate overflow-hidden rounded-xl border border-border bg-card">
-      <div className="overflow-x-auto touch-pan-x">
+    <div
+      className={cn(
+        "isolate rounded-xl border border-border bg-card",
+        printMode ? "overflow-visible" : "overflow-hidden"
+      )}
+    >
+      <div
+        className={cn(
+          printMode ? "overflow-visible" : "overflow-x-auto touch-pan-x"
+        )}
+      >
         <table className="w-max min-w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">

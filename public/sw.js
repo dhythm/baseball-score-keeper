@@ -1,5 +1,7 @@
 const CACHE_PREFIX = "baseball-scorebook-";
-const CACHE_NAME = `${CACHE_PREFIX}v5`;
+const BUILD_ID =
+  new URL(self.location.href).searchParams.get("v") || "development";
+const CACHE_NAME = `${CACHE_PREFIX}${BUILD_ID}`;
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -13,7 +15,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

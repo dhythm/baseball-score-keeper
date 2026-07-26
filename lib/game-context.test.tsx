@@ -60,12 +60,16 @@ function Harness() {
     addEvent,
     storageConflict,
     reloadConflictingGame,
+    storageError,
+    retrySave,
+    loadGame,
   } = useGame();
 
   return (
     <div>
       <span data-testid="event-count">{currentGame?.events.length ?? -1}</span>
       <span data-testid="conflict">{String(storageConflict)}</span>
+      <span data-testid="storage-error">{String(storageError)}</span>
       <button
         type="button"
         onClick={() => dispatch({ type: "ADD_EVENT", event: recordedOut })}
@@ -77,6 +81,12 @@ function Harness() {
       </button>
       <button type="button" onClick={reloadConflictingGame}>
         test reload
+      </button>
+      <button type="button" onClick={retrySave}>
+        test retry
+      </button>
+      <button type="button" onClick={() => loadGame(game.id)}>
+        test load
       </button>
     </div>
   );
@@ -134,6 +144,7 @@ describe("GameProvider cross-tab editing guard", () => {
 
     expect(screen.getByTestId("conflict").textContent).toBe("true");
     expect(screen.getByText("別のタブでこの試合が更新されました")).toBeTruthy();
+    expect(screen.getByTestId("editing-blocker")).toBeTruthy();
 
     await user.click(screen.getByText("dispatch add"));
     await user.click(screen.getByText("command add"));
@@ -142,6 +153,43 @@ describe("GameProvider cross-tab editing guard", () => {
     await user.click(screen.getByText("他タブの内容を読み直す"));
     expect(screen.getByTestId("event-count").textContent).toBe("1");
     expect(screen.getByTestId("conflict").textContent).toBe("false");
+  });
+
+  it("keeps the game visible when saving fails and clears the warning after retry", async () => {
+    const user = userEvent.setup();
+    const originalSetItem = Storage.prototype.setItem;
+    originalSetItem.call(
+      window.localStorage,
+      DEFAULT_GAME_STORAGE_KEY,
+      serializeStoredGame(game)
+    );
+    let shouldFail = true;
+    Storage.prototype.setItem = function (...args) {
+      if (shouldFail) throw new DOMException("quota", "QuotaExceededError");
+      return originalSetItem.apply(this, args);
+    };
+
+    try {
+      render(
+        <GameProvider>
+          <Harness />
+        </GameProvider>
+      );
+      await user.click(screen.getByText("test load"));
+      await user.click(screen.getByText("dispatch add"));
+      await waitFor(() =>
+        expect(screen.getByTestId("storage-error").textContent).toBe("true")
+      );
+      expect(screen.getByText("この端末に保存されていません")).toBeTruthy();
+
+      shouldFail = false;
+      await user.click(screen.getByText("test retry"));
+      await waitFor(() =>
+        expect(screen.getByTestId("storage-error").textContent).toBe("false")
+      );
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
   });
 
   it("ignores identical data, another game, malformed data, and unrelated keys", async () => {

@@ -44,6 +44,16 @@ describe("at-bat notation", () => {
     ).toBe("遊併");
   });
 
+  it("renders a structured double-play fielding sequence", () => {
+    const event = atBat("doublePlay", {
+      position: "short",
+      type: "ground",
+    });
+    event.fieldingSequence = ["short", "second", "first"];
+
+    expect(formatAtBatNotation(event)).toBe("6-4-3 併");
+  });
+
   it("shows a legacy ground-out event with two outs as a double play", () => {
     const event = atBat("groundOut", {
       position: "second",

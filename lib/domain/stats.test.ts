@@ -9,9 +9,11 @@ import type {
 } from "./types";
 import {
   getInningScores,
+  getHalfInningLeftOnBase,
   getPlayerAppearances,
   getPlayerBattingStats,
   getTeamStats,
+  getTeamSummary,
 } from "./stats";
 
 const emptySnapshot: Snapshot = {
@@ -140,6 +142,106 @@ describe("getInningScores", () => {
 });
 
 describe("timeline-derived statistics", () => {
+  it("counts successful steal movements, including both runners in a double steal", () => {
+    const entry: TimelineEntry = {
+      ...timelineEntry({ id: "placeholder" }),
+      event: {
+        id: "double-steal",
+        kind: "baseRunning",
+        type: "steal",
+        movements: [
+          {
+            playerId: "r1",
+            from: "first",
+            to: "second",
+            isRBI: false,
+          },
+          {
+            playerId: "r2",
+            from: "second",
+            to: "third",
+            isRBI: false,
+          },
+        ],
+      },
+    };
+
+    expect(getTeamSummary([entry], "away").stolenBases).toBe(2);
+    expect(
+      getTeamSummary([{ ...entry, applied: false }], "away").stolenBases
+    ).toBe(0);
+  });
+
+  it("attributes error details to the fielding team by structured position", () => {
+    const shortstopError = timelineEntry({
+      id: "error",
+      team: "away",
+      result: "error",
+    });
+    if (shortstopError.event.kind !== "atBat") throw new Error("at-bat");
+    shortstopError.event.battedBall = {
+      position: "short",
+      type: "ground",
+    };
+
+    expect(getTeamSummary([shortstopError], "home").errorDetails).toEqual([
+      { position: "short", count: 1 },
+    ]);
+    expect(getTeamSummary([shortstopError], "away").errorDetails).toEqual([]);
+  });
+
+  it("counts LOB at a completed half and includes a safe batter on a third-out force", () => {
+    const before = {
+      ...emptySnapshot,
+      outs: 2,
+      runners: { first: "r1", second: "r2", third: "r3" },
+    };
+    const forceOut = timelineEntry({
+      id: "force-out",
+      result: "fieldersChoice",
+      batterId: "batter",
+      movements: [
+        {
+          playerId: "r1",
+          from: "first",
+          to: "out",
+          isRBI: false,
+          outType: "force",
+        },
+        {
+          playerId: "batter",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ],
+    });
+    forceOut.before = before;
+    forceOut.outsBefore = 2;
+    forceOut.outsAfter = 3;
+    forceOut.outsRecorded = 1;
+
+    expect(getHalfInningLeftOnBase([forceOut])).toEqual([
+      {
+        inning: 1,
+        half: "top",
+        team: "away",
+        leftOnBase: 3,
+      },
+    ]);
+    expect(getTeamSummary([forceOut], "away").leftOnBase).toBe(3);
+  });
+
+  it("does not count an unfinished half inning as LOB", () => {
+    const unfinished = timelineEntry({ id: "unfinished" });
+    unfinished.before = {
+      ...emptySnapshot,
+      runners: { first: "r1", second: null, third: null },
+    };
+
+    expect(getHalfInningLeftOnBase([unfinished])).toEqual([]);
+  });
+
   it("uses only scoringMovements for both individual runs and RBI", () => {
     const invalidRun: RunnerMovement = {
       playerId: "runner",

@@ -24,6 +24,7 @@ import { useGame } from "@/lib/game-context";
 import type {
   AtBatEvent,
   AtBatResult,
+  BattedBall,
   RunnerMovement,
 } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
@@ -52,7 +53,11 @@ export type AtBatResultDialogProps = {
   /** edit 時必須 */
   eventId?: string | null;
   /** 新規打席の確定（ランナー進行シートの前に呼ばれる） */
-  onNewResult?: (result: AtBatResult, detail?: string) => void;
+  onNewResult?: (
+    result: AtBatResult,
+    detail?: string,
+    battedBall?: BattedBall
+  ) => void;
 };
 
 export function AtBatResultDialog({
@@ -73,6 +78,7 @@ export function AtBatResultDialog({
   const [pendingEdit, setPendingEdit] = useState<{
     result: AtBatResult;
     detail?: string;
+    battedBall?: BattedBall;
     initialMovements?: RunnerMovement[];
     movementOnly?: boolean;
   } | null>(null);
@@ -88,21 +94,35 @@ export function AtBatResultDialog({
   const atBat = event?.kind === "atBat" ? event : undefined;
   const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
-  const handleFlowSubmit = (result: AtBatResult, detail?: string) => {
+  const handleFlowSubmit = (
+    result: AtBatResult,
+    detail?: string,
+    battedBall?: BattedBall
+  ) => {
     if (mode === "new") {
-      onNewResult?.(result, detail);
+      onNewResult?.(result, detail, battedBall);
       onOpenChange(false);
       return;
     }
     if (!eventId || !atBat) return;
     const before = timelineEntry?.before;
     if (!before) return;
+    const selectedResult = mapAtBatSelectionResult(
+      result,
+      detail?.trim() ?? ""
+    );
+    const keepsSameSelection =
+      selectedResult === atBat.result &&
+      (detail?.trim() ?? "") === (atBat.note?.trim() ?? "") &&
+      (battedBall === undefined ||
+        (battedBall.position === atBat.battedBall?.position &&
+          battedBall.type === atBat.battedBall?.type &&
+          battedBall.depth === atBat.battedBall?.depth));
     setPendingEdit({
       result,
       detail,
-      ...(mapAtBatSelectionResult(result, detail?.trim() ?? "") === atBat.result
-        ? { initialMovements: atBat.movements }
-        : {}),
+      ...(battedBall ? { battedBall } : {}),
+      ...(keepsSameSelection ? { initialMovements: atBat.movements } : {}),
     });
   };
 
@@ -138,6 +158,7 @@ export function AtBatResultDialog({
           batterId: atBat.batterId,
           result: pendingEdit.result,
           detail: pendingEdit.detail,
+          battedBall: pendingEdit.battedBall,
           movements,
         });
     const preview = evaluateEventUpdate(game, eventId, replacement);
@@ -153,7 +174,7 @@ export function AtBatResultDialog({
 
   const handleDelete = () => {
     if (!eventId) return;
-    dispatch({ type: "DELETE_EVENT", eventId });
+    if (!dispatch({ type: "DELETE_EVENT", eventId })) return;
     setShowDelete(false);
     onOpenChange(false);
   };
@@ -227,6 +248,11 @@ export function AtBatResultDialog({
             <AtBatResultFlow
               resetToken={resetToken}
               outs={outsForFlow}
+              hasTagUpCandidate={Boolean(
+                situationSnapshot.runners.second ||
+                situationSnapshot.runners.third
+              )}
+              canRecordDoublePlay={Boolean(situationSnapshot.runners.first)}
               onSubmit={handleFlowSubmit}
             />
 
@@ -249,6 +275,7 @@ export function AtBatResultDialog({
           game={game}
           result={pendingEdit.result}
           detail={pendingEdit.detail}
+          battedBall={pendingEdit.battedBall}
           open
           context={{
             snapshot: timelineEntry.before,

@@ -16,7 +16,6 @@ import type {
 export const SCHEMA_VERSION = 2 as const;
 export const DEFAULT_GAME_STORAGE_KEY = "baseball-scorer-game";
 export const DEFAULT_GAME_HISTORY_STORAGE_KEY = "baseball-scorer-games";
-const MAX_STORED_GAMES = 10;
 
 export interface PersistedGameV2 {
   id: string;
@@ -24,6 +23,20 @@ export interface PersistedGameV2 {
   status: "setup" | "live" | "finished";
   config: GameConfig;
   events: GameEvent[];
+  deletedEvents?: DeletedEvent[];
+  undoHistory?: GameRevision[];
+  redoHistory?: GameRevision[];
+}
+
+export interface DeletedEvent {
+  event: GameEvent;
+  index: number;
+}
+
+export interface GameRevision {
+  events: GameEvent[];
+  deletedEvents: DeletedEvent[];
+  status: "live" | "finished";
 }
 
 export interface StorageEnvelopeV2 {
@@ -52,6 +65,7 @@ export interface GameRepository {
   list(): PersistedGameV2[];
   find(id: string): PersistedGameV2 | null;
   save(game: PersistedGameV2): void;
+  importGames(games: readonly PersistedGameV2[]): void;
   remove(id: string): void;
   loadActive(): PersistedGameV2 | null;
   clearActive(): void;
@@ -292,52 +306,95 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
     !isRecord(value.config.teams) ||
     !isStoredTeam(value.config.teams.away) ||
     !isStoredTeam(value.config.teams.home) ||
-    !Array.isArray(value.events)
+    !Array.isArray(value.events) ||
+    (value.deletedEvents !== undefined &&
+      !isDeletedEventList(value.deletedEvents)) ||
+    (value.undoHistory !== undefined &&
+      !isGameRevisionList(value.undoHistory)) ||
+    (value.redoHistory !== undefined && !isGameRevisionList(value.redoHistory))
   ) {
     return false;
   }
-  return value.events.every((event) => {
-    if (!isRecord(event) || typeof event.id !== "string") {
-      return false;
-    }
-    if (event.kind === "atBat") {
-      return (
-        typeof event.batterId === "string" &&
-        typeof event.result === "string" &&
-        AT_BAT_RESULTS.has(event.result) &&
-        isRunnerMovementList(event.movements) &&
-        (event.note === undefined || typeof event.note === "string") &&
-        (event.battedBall === undefined || isStoredBattedBall(event.battedBall))
-      );
-    }
-    if (event.kind === "baseRunning") {
-      return (
-        typeof event.type === "string" &&
-        BASE_RUNNING_TYPES.has(event.type) &&
-        isRunnerMovementList(event.movements) &&
-        (event.rbiCreditBatterId === undefined ||
-          typeof event.rbiCreditBatterId === "string")
-      );
-    }
-    if (event.kind === "substitution") {
-      return (
-        ["away", "home"].includes(String(event.team)) &&
-        typeof event.inPlayerId === "string" &&
-        typeof event.outPlayerId === "string" &&
-        ["pinchHitter", "pinchRunner", "fielder", "pitcher"].includes(
-          String(event.role)
-        )
-      );
-    }
-    if (event.kind === "note") {
-      return typeof event.text === "string";
-    }
+  return value.events.every(isStoredGameEvent);
+}
+
+function isStoredGameEvent(event: unknown): boolean {
+  if (!isRecord(event) || typeof event.id !== "string") {
+    return false;
+  }
+  if (event.kind === "atBat") {
     return (
-      event.kind === "gameControl" &&
-      event.action === "endGame" &&
-      (event.reason === undefined || typeof event.reason === "string")
+      typeof event.batterId === "string" &&
+      typeof event.result === "string" &&
+      AT_BAT_RESULTS.has(event.result) &&
+      isRunnerMovementList(event.movements) &&
+      (event.note === undefined || typeof event.note === "string") &&
+      (event.battedBall === undefined ||
+        isStoredBattedBall(event.battedBall)) &&
+      (event.fieldingSequence === undefined ||
+        (Array.isArray(event.fieldingSequence) &&
+          event.fieldingSequence.length > 0 &&
+          event.fieldingSequence.every(
+            (position) =>
+              typeof position === "string" && FIELDING_POSITIONS.has(position)
+          )))
     );
-  });
+  }
+  if (event.kind === "baseRunning") {
+    return (
+      typeof event.type === "string" &&
+      BASE_RUNNING_TYPES.has(event.type) &&
+      isRunnerMovementList(event.movements) &&
+      (event.rbiCreditBatterId === undefined ||
+        typeof event.rbiCreditBatterId === "string")
+    );
+  }
+  if (event.kind === "substitution") {
+    return (
+      ["away", "home"].includes(String(event.team)) &&
+      typeof event.inPlayerId === "string" &&
+      typeof event.outPlayerId === "string" &&
+      ["pinchHitter", "pinchRunner", "fielder", "pitcher"].includes(
+        String(event.role)
+      )
+    );
+  }
+  if (event.kind === "note") {
+    return typeof event.text === "string";
+  }
+  return (
+    event.kind === "gameControl" &&
+    event.action === "endGame" &&
+    (event.reason === undefined || typeof event.reason === "string")
+  );
+}
+
+function isDeletedEventList(value: unknown): value is DeletedEvent[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        isRecord(item) &&
+        Number.isInteger(item.index) &&
+        Number(item.index) >= 0 &&
+        isStoredGameEvent(item.event)
+    )
+  );
+}
+
+function isGameRevisionList(value: unknown): value is GameRevision[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 20 &&
+    value.every(
+      (revision) =>
+        isRecord(revision) &&
+        ["live", "finished"].includes(String(revision.status)) &&
+        Array.isArray(revision.events) &&
+        revision.events.every(isStoredGameEvent) &&
+        isDeletedEventList(revision.deletedEvents)
+    )
+  );
 }
 
 const FIELDING_POSITIONS = new Set([
@@ -405,6 +462,9 @@ function isRunnerMovementList(value: unknown): boolean {
         typeof movement.to === "string" &&
         RUNNER_DESTINATIONS.has(movement.to) &&
         typeof movement.isRBI === "boolean" &&
+        (movement.playOrder === undefined ||
+          (Number.isInteger(movement.playOrder) &&
+            Number(movement.playOrder) > 0)) &&
         (movement.outType === undefined ||
           (movement.to === "out" &&
             ["force", "tag"].includes(String(movement.outType))))
@@ -417,7 +477,10 @@ function isStoredBattedBall(value: unknown): boolean {
     isRecord(value) &&
     typeof value.position === "string" &&
     FIELDING_POSITIONS.has(value.position) &&
-    ["ground", "fly", "liner", "bunt"].includes(String(value.type))
+    ["ground", "fly", "liner", "bunt"].includes(String(value.type)) &&
+    (value.depth === undefined ||
+      value.depth === "shallow" ||
+      value.depth === "deep")
   );
 }
 
@@ -568,7 +631,7 @@ export function createGameRepository(
     );
     const activeGame = activeStorage.load();
     if (activeGame) gamesById.set(activeGame.id, activeGame);
-    return newestFirst([...gamesById.values()]).slice(0, MAX_STORED_GAMES);
+    return newestFirst([...gamesById.values()]);
   }
 
   return {
@@ -581,13 +644,21 @@ export function createGameRepository(
         list().map((storedGame) => [storedGame.id, storedGame] as const)
       );
       gamesById.set(game.id, game);
+      activeStorage.save(game);
       storage.setItem(
         historyKey,
-        serializeGameHistory(
-          newestFirst([...gamesById.values()]).slice(0, MAX_STORED_GAMES)
-        )
+        serializeGameHistory(newestFirst([...gamesById.values()]))
       );
-      activeStorage.save(game);
+    },
+    importGames(games) {
+      const gamesById = new Map(
+        list().map((storedGame) => [storedGame.id, storedGame] as const)
+      );
+      for (const game of games) gamesById.set(game.id, game);
+      storage.setItem(
+        historyKey,
+        serializeGameHistory(newestFirst([...gamesById.values()]))
+      );
     },
     remove(id) {
       const activeGame = activeStorage.load();

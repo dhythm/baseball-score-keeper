@@ -207,7 +207,8 @@ describe("createAtBatEvent", () => {
         "中飛",
         { first: null, second: "r2", third: null },
         "batter",
-        0
+        0,
+        { position: "center", type: "fly", depth: "deep" }
       )
     ).toEqual([
       {
@@ -263,6 +264,98 @@ describe("createAtBatEvent", () => {
         isRBI: false,
       },
     ]);
+  });
+
+  it("keeps runners on a shallow fly and advances tag-up candidates on a deep fly", () => {
+    const runners = { first: null, second: "r2", third: "r3" };
+
+    expect(
+      getDefaultMovementsForSelection("flyOut", "中飛", runners, "batter", 0, {
+        position: "center",
+        type: "fly",
+        depth: "shallow",
+      })
+    ).toEqual([
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ]);
+    expect(
+      getDefaultMovementsForSelection("flyOut", "中飛", runners, "batter", 0, {
+        position: "center",
+        type: "fly",
+        depth: "deep",
+      })
+    ).toEqual([
+      { playerId: "r3", from: "third", to: "home", isRBI: true },
+      { playerId: "r2", from: "second", to: "third", isRBI: false },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ]);
+  });
+
+  it("normalizes a force-out ground ball to a fielder's choice", () => {
+    const event = createAtBatEvent({
+      id: "fc",
+      batterId: "batter",
+      result: "groundOut",
+      detail: "遊ゴロ",
+      movements: [
+        {
+          playerId: "runner",
+          from: "first",
+          to: "out",
+          isRBI: false,
+          outType: "force",
+        },
+        {
+          playerId: "batter",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ],
+    });
+
+    expect(event.result).toBe("fieldersChoice");
+  });
+
+  it("stores conventional double-play handling and explicit play order", () => {
+    const movements = getDefaultMovementsForSelection(
+      "doublePlay",
+      "遊併",
+      { first: "runner", second: null, third: "lead" },
+      "batter",
+      0
+    );
+    const event = createAtBatEvent({
+      id: "dp",
+      batterId: "batter",
+      result: "doublePlay",
+      detail: "遊併",
+      movements,
+    });
+
+    expect(event.movements).toEqual([
+      expect.objectContaining({
+        playerId: "runner",
+        to: "out",
+        playOrder: 1,
+      }),
+      expect.objectContaining({
+        playerId: "batter",
+        to: "out",
+        playOrder: 2,
+      }),
+    ]);
+    expect(event.fieldingSequence).toEqual(["short", "second", "first"]);
   });
 });
 

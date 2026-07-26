@@ -46,18 +46,14 @@ import {
   Footprints,
   PlusCircle,
   UserRoundCog,
-  FlaskConical,
 } from "lucide-react";
 import { toast } from "sonner";
-import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
-import { migrateV1Game } from "@/lib/storage/local-storage";
 
 export function LiveScoring() {
   const { game, dispatch } = useGame();
   const [pendingResult, setPendingResult] = useState<AtBatResult | null>(null);
   const [pendingDetail, setPendingDetail] = useState<string | undefined>();
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
-  const [showDummyDialog, setShowDummyDialog] = useState(false);
   const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
   const [baseRunningOpen, setBaseRunningOpen] = useState(false);
   const [substitutionOpen, setSubstitutionOpen] = useState(false);
@@ -154,14 +150,6 @@ export function LiveScoring() {
     setShowEndGameDialog(false);
   };
 
-  const handleLoadDummyGame = () => {
-    dispatch({
-      type: "LOAD_GAME",
-      game: migrateV1Game(createDummyGameAfterSevenInnings()),
-    });
-    setShowDummyDialog(false);
-  };
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm sm:px-5 sm:pb-3">
@@ -170,19 +158,6 @@ export function LiveScoring() {
           スコアブック
         </h1>
         <div className="flex shrink-0 items-center gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/10 sm:w-auto sm:px-3"
-            onClick={() => setShowDummyDialog(true)}
-            aria-label="検証用データ"
-          >
-            <FlaskConical className="h-4 w-4" />
-            <span className="hidden text-xs font-bold sm:ml-2 sm:inline">
-              検証用
-            </span>
-          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -333,23 +308,6 @@ export function LiveScoring() {
           onConfirm={handleRunnerAdvanceConfirm}
         />
       )}
-
-      <AlertDialog open={showDummyDialog} onOpenChange={setShowDummyDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>検証用ダミーを読み込みますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              現在の試合データは上書きされます。7イニング終了後（8回表・0アウト・0-0）のダミーに切り替わります。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLoadDummyGame}>
-              読み込む
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={showEndGameDialog} onOpenChange={setShowEndGameDialog}>
         <AlertDialogContent>

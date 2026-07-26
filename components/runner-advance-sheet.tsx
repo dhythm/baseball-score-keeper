@@ -285,13 +285,18 @@ export function RunnerAdvanceSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>ランナー進塁確認</SheetTitle>
+      <SheetContent
+        side="bottom"
+        className="left-1/2 right-auto max-h-[88dvh] w-[min(100%,42rem)] -translate-x-1/2 gap-0 overflow-y-auto rounded-t-[1.75rem] border-x border-t bg-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
+      >
+        <SheetHeader className="sticky top-0 z-10 border-b border-border bg-card px-5 py-4">
+          <SheetTitle className="text-lg font-extrabold">
+            ランナー進塁確認
+          </SheetTitle>
         </SheetHeader>
 
-        <div className="py-4 space-y-6">
-          <div className="bg-secondary/50 rounded-lg px-3 py-2 space-y-1">
+        <div className="space-y-6 px-4 py-5 sm:px-5">
+          <div className="space-y-1 rounded-xl bg-secondary/70 px-4 py-3">
             <div>
               <span className="text-sm text-muted-foreground">打席結果: </span>
               <span className="text-sm font-semibold text-foreground">
@@ -311,17 +316,19 @@ export function RunnerAdvanceSheet({
                 </Label>
                 <ToggleGroup
                   type="single"
+                  variant="outline"
+                  size="lg"
                   value={runner.to}
                   onValueChange={(value) => {
                     if (value) updateRunnerDestination(runner.playerId, value as Destination);
                   }}
-                  className="justify-start flex-wrap"
+                  className="w-full justify-start"
                 >
                   {getDestinationOptions(runner.from).map(({ value, label }) => (
                     <ToggleGroupItem
                       key={value}
                       value={value}
-                      className="text-sm"
+                      className="text-sm font-semibold"
                     >
                       {label}
                     </ToggleGroupItem>
@@ -347,7 +354,7 @@ export function RunnerAdvanceSheet({
           </div>
 
           {duplicates.length > 0 && (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
               <p className="text-sm text-destructive font-medium">警告</p>
               {duplicates.map((d, i) => (
                 <p key={i} className="text-sm text-destructive">
@@ -357,7 +364,7 @@ export function RunnerAdvanceSheet({
             </div>
           )}
 
-          <div className="bg-secondary rounded-lg px-4 py-3 space-y-1">
+          <div className="space-y-1 rounded-xl bg-secondary px-4 py-3">
             <p className="text-sm font-medium text-foreground">プレビュー</p>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">得点:</span>
@@ -379,7 +386,7 @@ export function RunnerAdvanceSheet({
           </div>
 
           <Button
-            className="w-full h-12 text-base font-semibold"
+            className="h-12 w-full text-base font-bold"
             onClick={handleConfirm}
             disabled={hasErrors}
           >

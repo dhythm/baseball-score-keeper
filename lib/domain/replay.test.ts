@@ -1,0 +1,402 @@
+import { describe, expect, it } from "vitest";
+
+import { replay } from "./replay";
+import type {
+  AtBatEvent,
+  GameConfig,
+  GameEvent,
+  Player,
+  RunnerMovement,
+} from "./types";
+
+function players(side: string, count: number): Player[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${side}-${index + 1}`,
+    name: `${side} player ${index + 1}`,
+    order: index + 1,
+  }));
+}
+
+function config(
+  regulationInnings = 7,
+  awayPlayerCount = 1,
+  homePlayerCount = 1
+): GameConfig {
+  return {
+    regulationInnings,
+    teams: {
+      away: { name: "Away", players: players("away", awayPlayerCount) },
+      home: { name: "Home", players: players("home", homePlayerCount) },
+    },
+  };
+}
+
+function atBat(
+  id: string,
+  batterId: string,
+  movements: RunnerMovement[],
+  result: AtBatEvent["result"] = "groundOut"
+): AtBatEvent {
+  return {
+    id,
+    kind: "atBat",
+    batterId,
+    result,
+    movements,
+  };
+}
+
+function out(id: string, batterId: string): AtBatEvent {
+  return atBat(id, batterId, [
+    { playerId: batterId, from: "batter", to: "out", isRBI: false },
+  ]);
+}
+
+function run(id: string, batterId: string): AtBatEvent {
+  return atBat(
+    id,
+    batterId,
+    [{ playerId: batterId, from: "batter", to: "home", isRBI: true }],
+    "homerun"
+  );
+}
+
+function threeOuts(prefix: string, batterId: string): GameEvent[] {
+  return [1, 2, 3].map((number) => out(`${prefix}-${number}`, batterId));
+}
+
+describe("replay", () => {
+  it("starts an empty game at the top of the first inning", () => {
+    const result = replay([], config());
+
+    expect(result.snapshot).toEqual({
+      inning: 1,
+      half: "top",
+      outs: 0,
+      runners: { first: null, second: null, third: null },
+      currentBatterIndex: { away: 0, home: 0 },
+      score: { away: 0, home: 0 },
+      gameStatus: "live",
+    });
+    expect(result.timeline).toEqual([]);
+    expect(result.violations).toEqual([]);
+  });
+
+  it("clears the bases and changes halves after three outs", () => {
+    const events = [
+      atBat("on-base", "away-1", [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ]),
+      ...threeOuts("out", "away-1"),
+    ];
+
+    const result = replay(events, config());
+
+    expect(result.snapshot).toMatchObject({
+      inning: 1,
+      half: "bottom",
+      outs: 0,
+      runners: { first: null, second: null, third: null },
+    });
+    expect(result.timeline.at(-1)).toMatchObject({
+      inning: 1,
+      half: "top",
+      outsBefore: 2,
+      outsRecorded: 1,
+    });
+  });
+
+  it("rotates each team's batting order independently", () => {
+    const events = [
+      out("away-out-1", "away-1"),
+      out("away-out-2", "away-2"),
+      out("away-out-3", "away-1"),
+      out("home-out-1", "home-1"),
+    ];
+
+    const result = replay(events, config(7, 2, 2));
+
+    expect(result.snapshot.currentBatterIndex).toEqual({ away: 1, home: 1 });
+    expect(result.timeline.map(({ team }) => team)).toEqual([
+      "away",
+      "away",
+      "away",
+      "home",
+    ]);
+    expect(result.violations).toEqual([]);
+  });
+
+  it("derives runs and effective scoring movements from movements", () => {
+    const result = replay([run("home-run", "away-1")], config());
+
+    expect(result.snapshot.score).toEqual({ away: 1, home: 0 });
+    expect(result.timeline[0]).toMatchObject({
+      runsScored: 1,
+      outsRecorded: 0,
+      scoringMovements: [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "home",
+          isRBI: true,
+        },
+      ],
+    });
+  });
+
+  it("does not count a run or RBI movement after the third out", () => {
+    const gameConfig = config(7, 5, 1);
+    const events: GameEvent[] = [
+      atBat("runner-third", "away-1", [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "third",
+          isRBI: false,
+        },
+      ]),
+      out("first-out", "away-2"),
+      out("second-out", "away-3"),
+      atBat("third-out-and-run", "away-4", [
+        {
+          playerId: "away-4",
+          from: "batter",
+          to: "out",
+          isRBI: false,
+        },
+        {
+          playerId: "away-1",
+          from: "third",
+          to: "home",
+          isRBI: true,
+        },
+      ]),
+    ];
+
+    const result = replay(events, gameConfig);
+    const lastEntry = result.timeline.at(-1);
+
+    expect(result.snapshot.score.away).toBe(0);
+    expect(lastEntry?.runsScored).toBe(0);
+    expect(lastEntry?.scoringMovements).toEqual([]);
+  });
+
+  it("does not count a run when the batter makes the third out, regardless of movement order", () => {
+    const events: GameEvent[] = [
+      atBat("runner-third", "away-1", [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "third",
+          isRBI: false,
+        },
+      ]),
+      out("first-out", "away-2"),
+      out("second-out", "away-3"),
+      atBat("third-out-and-run", "away-4", [
+        {
+          playerId: "away-1",
+          from: "third",
+          to: "home",
+          isRBI: true,
+        },
+        {
+          playerId: "away-4",
+          from: "batter",
+          to: "out",
+          isRBI: false,
+        },
+      ]),
+    ];
+
+    const result = replay(events, config(7, 5, 1));
+
+    expect(result.snapshot.score.away).toBe(0);
+    expect(result.timeline.at(-1)?.scoringMovements).toEqual([]);
+  });
+
+  it("re-derives every later inning placement when an earlier event is removed", () => {
+    const events = [
+      ...threeOuts("top", "away-1"),
+      ...threeOuts("bottom", "home-1"),
+      out("second-inning", "away-1"),
+    ];
+
+    const original = replay(events, config());
+    const afterDeletion = replay(
+      events.filter((event) => event.id !== "top-1"),
+      config()
+    );
+
+    expect(original.timeline.at(-1)).toMatchObject({
+      inning: 2,
+      half: "top",
+    });
+    expect(afterDeletion.timeline.at(-1)).toMatchObject({
+      inning: 1,
+      half: "top",
+    });
+  });
+
+  it("rejects a destination collision atomically", () => {
+    const firstEvent = atBat("occupy-first", "away-1", [
+      {
+        playerId: "away-1",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+    const collision = atBat("collision", "away-2", [
+      {
+        playerId: "away-2",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+
+    const result = replay([firstEvent, collision], config(7, 2, 1));
+
+    expect(result.snapshot.runners).toEqual({
+      first: "away-1",
+      second: null,
+      third: null,
+    });
+    expect(result.snapshot.currentBatterIndex.away).toBe(1);
+    expect(result.timeline[1].applied).toBe(false);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({
+        eventId: "collision",
+        code: "DESTINATION_OCCUPIED",
+        severity: "error",
+      })
+    );
+  });
+
+  it("preserves explicitly entered runner destinations during replay", () => {
+    const events: GameEvent[] = [
+      atBat(
+        "runner-on-first",
+        "away-1",
+        [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+        "walk"
+      ),
+      atBat("manual-advance", "away-2", [
+        {
+          playerId: "away-1",
+          from: "first",
+          to: "third",
+          isRBI: false,
+        },
+        {
+          playerId: "away-2",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ]),
+    ];
+
+    const result = replay(events, config(7, 2, 1));
+
+    expect(result.snapshot.runners).toEqual({
+      first: "away-2",
+      second: null,
+      third: "away-1",
+    });
+  });
+
+  it("skips the regulation bottom half when the home team already leads", () => {
+    const events: GameEvent[] = [
+      ...threeOuts("top-1", "away-1"),
+      run("home-score", "home-1"),
+      ...threeOuts("bottom-1", "home-1"),
+      ...threeOuts("top-2", "away-1"),
+    ];
+
+    const result = replay(events, config(2));
+
+    expect(result.snapshot).toMatchObject({
+      inning: 2,
+      half: "bottom",
+      score: { away: 0, home: 1 },
+      gameStatus: "finished",
+      gameEndReason: "homeAheadAfterTop",
+    });
+  });
+
+  it("ends immediately on a regulation-inning walk-off", () => {
+    const events = [...threeOuts("top", "away-1"), run("walk-off", "home-1")];
+
+    const result = replay(events, config(1));
+
+    expect(result.snapshot).toMatchObject({
+      inning: 1,
+      half: "bottom",
+      score: { away: 0, home: 1 },
+      gameStatus: "finished",
+      gameEndReason: "walkOff",
+    });
+  });
+
+  it("ends with an away win after the regulation bottom half", () => {
+    const events = [
+      run("away-score", "away-1"),
+      ...threeOuts("top", "away-1"),
+      ...threeOuts("bottom", "home-1"),
+    ];
+
+    const result = replay(events, config(1));
+
+    expect(result.snapshot).toMatchObject({
+      score: { away: 1, home: 0 },
+      gameStatus: "finished",
+      gameEndReason: "completedHalf",
+    });
+  });
+
+  it("continues tied games into extras and ends after an extra inning", () => {
+    const regulationTie = [
+      ...threeOuts("regulation-top", "away-1"),
+      ...threeOuts("regulation-bottom", "home-1"),
+    ];
+    const tiedResult = replay(regulationTie, config(1));
+
+    expect(tiedResult.snapshot).toMatchObject({
+      inning: 2,
+      half: "top",
+      gameStatus: "live",
+    });
+
+    const decidedResult = replay(
+      [
+        ...regulationTie,
+        run("extra-away-score", "away-1"),
+        ...threeOuts("extra-top", "away-1"),
+        ...threeOuts("extra-bottom", "home-1"),
+      ],
+      config(1)
+    );
+
+    expect(decidedResult.snapshot).toMatchObject({
+      inning: 3,
+      half: "top",
+      score: { away: 1, home: 0 },
+      gameStatus: "finished",
+      gameEndReason: "completedHalf",
+    });
+  });
+});

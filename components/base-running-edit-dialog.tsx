@@ -26,6 +26,8 @@ import {
   BaseRunningEventSheet,
   type BaseRunningEventResult,
 } from "@/components/base-running-event-sheet";
+import { formatViolationMessage } from "@/lib/app-state/feedback";
+import { toast } from "sonner";
 
 export function BaseRunningEditDialog({
   game,
@@ -38,7 +40,7 @@ export function BaseRunningEditDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { dispatch } = useGame();
+  const { dispatch, updateEvent } = useGame();
   const [showDelete, setShowDelete] = useState(false);
 
   const event = eventId ? game.events.find((e) => e.id === eventId) : undefined;
@@ -62,18 +64,26 @@ export function BaseRunningEditDialog({
 
   const handleUpdate = (payload: BaseRunningEventResult) => {
     if (!eventId || !baseRun) return;
-    dispatch({
-      type: "UPDATE_EVENT",
+    const result = updateEvent(
       eventId,
-      event: {
+      {
         ...baseRun,
         type: payload.type,
         movements: payload.movements,
         ...(payload.rbiCreditBatterId
           ? { rbiCreditBatterId: payload.rbiCreditBatterId }
           : { rbiCreditBatterId: undefined }),
-      },
-    });
+      }
+    );
+    if (!result.accepted) {
+      toast.error(
+        result.violations[0]
+          ? formatViolationMessage(result.violations[0])
+          : "変更を保存できませんでした。"
+      );
+      return;
+    }
+    toast.success("走塁の変更を保存しました");
     onOpenChange(false);
   };
 

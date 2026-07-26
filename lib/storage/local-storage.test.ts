@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Game as LegacyGame, GameEvent as LegacyEvent } from "../types";
+import completeLegacyFixture from "./__fixtures__/v1-complete.json";
 import type { PersistedGameV2 } from "./local-storage";
 import {
   DEFAULT_GAME_STORAGE_KEY,
@@ -104,6 +105,36 @@ describe("v2 storage envelope", () => {
       schemaVersion: SCHEMA_VERSION,
       game,
     });
+    expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
+  });
+
+  it("round-trips an optional force-out marker while accepting legacy movements without it", () => {
+    const game = persistedGame({
+      events: [
+        {
+          id: "force-out",
+          kind: "atBat",
+          batterId: "batter",
+          result: "fieldersChoice",
+          movements: [
+            {
+              playerId: "runner",
+              from: "first",
+              to: "out",
+              isRBI: false,
+              outType: "force",
+            },
+            {
+              playerId: "batter",
+              from: "batter",
+              to: "first",
+              isRBI: false,
+            },
+          ],
+        },
+      ],
+    });
+
     expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
   });
 });
@@ -274,6 +305,43 @@ describe("v1 migration", () => {
       rbiCreditBatterId: "home-1",
     });
   });
+
+  it("migrates a complete real-world-shaped v1 payload fixture", () => {
+    const migrated = migrateV1Game(
+      completeLegacyFixture as unknown as LegacyGame
+    );
+
+    expect(migrated).toMatchObject({
+      id: "fixture-summer-final",
+      status: "finished",
+      config: {
+        regulationInnings: 7,
+        teams: {
+          away: { name: "青空クラブ" },
+          home: { name: "河川敷スターズ" },
+        },
+      },
+    });
+    expect(migrated.events).toEqual([
+      expect.objectContaining({
+        id: "fixture-hit",
+        kind: "atBat",
+        result: "single",
+      }),
+      expect.objectContaining({
+        id: "fixture-steal",
+        kind: "baseRunning",
+        type: "steal",
+      }),
+      expect.objectContaining({
+        id: "fixture-double-play",
+        kind: "atBat",
+        result: "otherOut",
+      }),
+    ]);
+    expect(migrated).not.toHaveProperty("currentState");
+    expect(migrated.events[0]).not.toHaveProperty("timestamp");
+  });
 });
 
 describe("localStorage adapter", () => {
@@ -322,6 +390,66 @@ describe("localStorage adapter", () => {
         })
       )
     ).toThrow("malformed schema version 2 game");
+  });
+
+  it.each([
+    ["unknown at-bat result", { result: "magicHit" }],
+    ["malformed runner movement", { movements: [{ from: "moon" }] }],
+    [
+      "malformed batted ball",
+      { battedBall: { position: "dugout", type: "ground" } },
+    ],
+  ])("rejects %s in a v2 event", (_label, eventPatch) => {
+    const game = persistedGame({
+      config: {
+        regulationInnings: 7,
+        teams: {
+          away: {
+            name: "Away",
+            players: [{ id: "away-1", name: "Away 1", order: 1 }],
+          },
+          home: {
+            name: "Home",
+            players: [{ id: "home-1", name: "Home 1", order: 1 }],
+          },
+        },
+      },
+      events: [
+        {
+          id: "event",
+          kind: "atBat",
+          batterId: "away-1",
+          result: "single",
+          movements: [],
+          ...eventPatch,
+        } as PersistedGameV2["events"][number],
+      ],
+    });
+
+    expect(() => parseStoredGame(serializeStoredGame(game))).toThrow(
+      "malformed schema version 2 game"
+    );
+  });
+
+  it("rejects malformed config and base-running event fields", () => {
+    const raw = JSON.parse(serializeStoredGame(persistedGame()));
+    raw.game.config.regulationInnings = 0;
+    raw.game.config.teams.away.players = [
+      { id: "away-1", name: "Away 1", order: 1, position: "bench" },
+    ];
+    raw.game.events = [
+      {
+        id: "run",
+        kind: "baseRunning",
+        type: "teleport",
+        movements: [],
+        rbiCreditBatterId: 99,
+      },
+    ];
+
+    expect(() => parseStoredGame(JSON.stringify(raw))).toThrow(
+      "malformed schema version 2 game"
+    );
   });
 });
 
@@ -449,5 +577,27 @@ describe("multiple game repository", () => {
     repository.save(game);
 
     expect(repository.find(game.id)).toEqual(game);
+  });
+
+  it("retains only the latest ten games in localStorage", () => {
+    const { values, storage } = memoryStorage();
+    const repository = createGameRepository(storage);
+
+    for (let day = 1; day <= 12; day++) {
+      repository.save(
+        persistedGame({
+          id: `game-${day}`,
+          date: `2026-07-${String(day).padStart(2, "0")}`,
+        })
+      );
+    }
+
+    expect(repository.list().map((game) => game.id)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `game-${12 - index}`)
+    );
+    const storedHistory = JSON.parse(
+      values.get(DEFAULT_GAME_HISTORY_STORAGE_KEY) ?? "{}"
+    );
+    expect(storedHistory.games).toHaveLength(10);
   });
 });

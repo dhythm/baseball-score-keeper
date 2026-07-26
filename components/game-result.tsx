@@ -30,7 +30,8 @@ import {
   exportGameAsJson,
   exportGameAsText,
 } from "@/lib/export/game-log";
-import { getStartingPitcherStats } from "@/lib/domain/pitching";
+import { getPitcherStats } from "@/lib/domain/pitching";
+import { GameHistory } from "@/components/game-history";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,7 +57,7 @@ function InningDetails({ game }: { game: AppGame }) {
 
   const innings = Object.keys(groupedEntries).sort((a, b) => {
     const [aInning, aHalf] = a.split("-");
-    const [bInning, bHalf] = b.split("-");
+    const [bInning] = b.split("-");
     if (aInning !== bInning) return parseInt(aInning) - parseInt(bInning);
     return aHalf === "top" ? -1 : 1;
   });
@@ -156,25 +157,55 @@ function PitchingSummary({ game }: { game: AppGame }) {
   return (
     <Card className="gap-3 border-border py-4">
       <CardHeader className="px-4 py-0">
-        <CardTitle className="text-base">先発投手成績</CardTitle>
+        <CardTitle className="text-base">投手成績</CardTitle>
         <CardDescription className="text-xs">
-          投手交代を記録した時点までの成績です。
+          記録された投手交代ごとに集計しています。
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-2">
         {(["away", "home"] as const).map((side) => {
           const team = game.config.teams[side];
-          const stats = getStartingPitcherStats(game.timeline, side);
+          const roster = [
+            ...team.players,
+            ...(team.benchPlayers ?? []),
+          ];
+          const pitchingLines = getPitcherStats(
+            game.timeline,
+            side,
+            team.startingPitcherId ?? null
+          );
           return (
-            <div key={side} className="rounded-lg border border-border p-3">
-              <p className="truncate text-sm font-semibold">
-                {team.startingPitcherName || `${team.name} 先発`}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {stats.inningsPitched}回・被安打{stats.hitsAllowed}・失点
-                {stats.runsAllowed}・与四球{stats.walksAllowed}・奪三振
-                {stats.strikeouts}
-              </p>
+            <div
+              key={side}
+              className="space-y-2 rounded-lg border border-border p-3"
+            >
+              <p className="truncate text-sm font-semibold">{team.name}</p>
+              {pitchingLines.map((stats, index) => {
+                const pitcherName =
+                  stats.pitcherId === null
+                    ? team.startingPitcherName || `${team.name} 先発`
+                    : roster.find(
+                        (player) => player.id === stats.pitcherId
+                      )?.name ?? stats.pitcherId;
+                return (
+                  <div
+                    key={`${stats.pitcherId ?? "starter"}-${index}`}
+                    className="rounded-md bg-muted/50 px-2.5 py-2"
+                  >
+                    <p className="truncate text-xs font-semibold">
+                      {pitcherName}
+                      <span className="ml-1 font-normal text-muted-foreground">
+                        {stats.role === "starter" ? "先発" : "救援"}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {stats.inningsPitched}回・被安打{stats.hitsAllowed}・失点
+                      {stats.runsAllowed}・与四球{stats.walksAllowed}・奪三振
+                      {stats.strikeouts}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -253,7 +284,7 @@ export function GameResult() {
           </CardHeader>
           <CardContent className="px-4 pb-0 pt-2 sm:px-6">
             <Tabs defaultValue="away" className="gap-3">
-              <TabsList className="h-11 w-full grid grid-cols-2 p-1 touch-manipulation sm:h-10">
+              <TabsList className="grid h-11 w-full grid-cols-2 p-1 touch-manipulation">
                 <TabsTrigger
                   value="away"
                   className="truncate text-sm data-[state=active]:font-semibold"
@@ -277,6 +308,7 @@ export function GameResult() {
           </CardContent>
         </Card>
         <InningDetails game={game} />
+        <GameHistory />
         <section className="rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
           <h2 className="mb-3 text-sm font-bold text-foreground">
             試合データ

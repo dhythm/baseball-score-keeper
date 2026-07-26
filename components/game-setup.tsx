@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,9 @@ import {
   generateId,
   getSelectableFieldingPositions,
   isTeamRosterValid,
+  syncNonLineupStartingPitcher,
   syncStartingPitcher,
 } from "@/lib/game-utils";
-import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
-import { migrateV1Game } from "@/lib/storage/local-storage";
 import { GameHistory } from "@/components/game-history";
 
 const emptyTeam = (): Team => ({
@@ -76,6 +75,7 @@ function TeamSetupForm({
   team: Team;
   onTeamChange: (team: Team) => void;
 }) {
+  const formId = useId();
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newPlayerPosition, setNewPlayerPosition] =
     useState<FieldingPosition | null>(null);
@@ -205,7 +205,9 @@ function TeamSetupForm({
       });
       return;
     }
-    onTeamChange({ ...team, startingPitcherName: value });
+    onTeamChange(
+      syncNonLineupStartingPitcher(team, value, generateId())
+    );
   };
 
   const newRowSelectable = getSelectableFieldingPositions(
@@ -223,26 +225,34 @@ function TeamSetupForm({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+          <label
+            htmlFor={`${formId}-team-name`}
+            className="text-sm font-medium text-muted-foreground mb-1.5 block"
+          >
             チーム名
           </label>
           <Input
+            id={`${formId}-team-name`}
             placeholder="チーム名を入力"
             value={team.name}
             onChange={(e) => onTeamChange({ ...team, name: e.target.value })}
-            className="bg-background"
+            className="h-11 bg-background text-base"
           />
         </div>
 
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+          <label
+            htmlFor={`${formId}-starting-pitcher`}
+            className="text-sm font-medium text-muted-foreground mb-1.5 block"
+          >
             先発投手
           </label>
           <Input
+            id={`${formId}-starting-pitcher`}
             placeholder="先発投手の氏名"
             value={team.startingPitcherName ?? ""}
             onChange={(e) => updateStartingPitcherName(e.target.value)}
-            className="bg-background"
+            className="h-11 bg-background text-base"
             autoComplete="off"
           />
           <p className="text-xs text-muted-foreground mt-1.5">
@@ -253,11 +263,15 @@ function TeamSetupForm({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+          <label
+            htmlFor={`${formId}-new-player`}
+            className="text-sm font-medium text-muted-foreground mb-1.5 block"
+          >
             打順
           </label>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
+              id={`${formId}-new-player`}
               placeholder="選手名を入力"
               value={newPlayerName}
               onChange={(e) => setNewPlayerName(e.target.value)}
@@ -267,7 +281,7 @@ function TeamSetupForm({
                   addPlayer();
                 }
               }}
-              className="bg-background w-full sm:flex-1 sm:min-w-0"
+              className="h-11 w-full bg-background text-base sm:flex-1 sm:min-w-0"
             />
             <div className="flex items-center gap-2 sm:shrink-0">
               <Select
@@ -276,7 +290,10 @@ function TeamSetupForm({
                   setNewPlayerPosition(v as FieldingPosition)
                 }
               >
-                <SelectTrigger className="w-[7.5rem] shrink-0 bg-background text-xs">
+                <SelectTrigger
+                  className="h-11 w-[7.5rem] shrink-0 bg-background text-xs"
+                  aria-label="追加する選手の守備位置"
+                >
                   <SelectValue placeholder="守備位置" />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,18 +308,19 @@ function TeamSetupForm({
                 type="button"
                 variant="secondary"
                 size="icon"
-                className="shrink-0"
+                className="h-11 w-11 shrink-0"
                 onClick={addPlayer}
                 disabled={!newPlayerName.trim() || !newPlayerPosition}
+                aria-label="打順に選手を追加"
               >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            DH 以外の守備位置はチーム内で重複できません。行左の{" "}
+            DH 以外の守備位置はチーム内で重複できません。スマホでは各行の上下矢印、キーボードでは行左の{" "}
             <GripVertical className="inline h-3.5 w-3.5 align-text-bottom text-muted-foreground" />{" "}
-            をドラッグして並べ替えられます。
+            にフォーカスして上下矢印キー、マウスではドラッグで並べ替えられます。
           </p>
         </div>
 
@@ -353,10 +371,10 @@ function TeamSetupForm({
                         setDraggingIndex(null);
                         e.currentTarget.closest("li")?.removeAttribute("data-dragging");
                       }}
-                      className="touch-none shrink-0 p-1 rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground cursor-grab active:cursor-grabbing select-none"
+                      className="flex size-11 touch-none shrink-0 cursor-grab select-none items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground active:cursor-grabbing"
                       role="button"
                       tabIndex={0}
-                      aria-label={`打順${player.order}をドラッグして移動`}
+                      aria-label={`打順${player.order}を移動。上下矢印キーでも並べ替えできます`}
                       onKeyDown={(e) => {
                         if (e.key === "ArrowUp") {
                           e.preventDefault();
@@ -391,9 +409,10 @@ function TeamSetupForm({
                       <SelectTrigger
                         size="sm"
                         className={cn(
-                          "w-[7.5rem] shrink-0 bg-background text-xs px-2",
+                          "h-11 w-[7.5rem] shrink-0 bg-background px-2 text-xs",
                           draggingIndex !== null && "pointer-events-none"
                         )}
+                        aria-label={`打順${player.order}の守備位置`}
                       >
                         <SelectValue placeholder="守備位置" />
                       </SelectTrigger>
@@ -418,6 +437,7 @@ function TeamSetupForm({
                         className="h-11 w-11"
                         onClick={() => movePlayer(index, "up")}
                         disabled={index === 0}
+                        aria-label={`${player.name}を打順で1つ上へ移動`}
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </Button>
@@ -428,6 +448,7 @@ function TeamSetupForm({
                         className="h-11 w-11"
                         onClick={() => movePlayer(index, "down")}
                         disabled={index === team.players.length - 1}
+                        aria-label={`${player.name}を打順で1つ下へ移動`}
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </Button>
@@ -437,6 +458,7 @@ function TeamSetupForm({
                         size="icon"
                         className="h-11 w-11 text-destructive hover:text-destructive"
                         onClick={() => removePlayer(player.id)}
+                        aria-label={`${player.name}を打順から削除`}
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -549,16 +571,9 @@ export function GameSetup() {
     setHomeTeam(SAMPLE_PRESET.home());
   };
 
-  const loadDummyGame = () => {
-    dispatch({
-      type: "LOAD_GAME",
-      game: migrateV1Game(createDummyGameAfterSevenInnings()),
-    });
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 py-3 text-primary-foreground shadow-sm">
+      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
           スコアブック
@@ -567,28 +582,25 @@ export function GameSetup() {
 
       <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
         <GameHistory />
+        <div>
+          <h2 className="text-lg font-bold text-foreground">
+            新しい試合を設定
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            イニング数と両チームの選手を登録して試合を始めます。
+          </p>
+        </div>
         <div className="flex flex-col gap-2">
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="min-h-11 w-full"
             onClick={applySamplePreset}
           >
             プリセット（両チーム9人・サンプル名）
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             先攻：イーグルス／選手1〜9、後攻：ライオンズ／打者1〜9（投手〜右翼）
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            onClick={loadDummyGame}
-          >
-            検証用（7回終了ダミーを読み込む）
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            試合中は画面上部の「検証用」からも同じダミーに切り替えられます。
           </p>
         </div>
 

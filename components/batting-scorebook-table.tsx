@@ -7,7 +7,6 @@ import { getEffectiveInningCount } from "@/lib/app-state/selectors";
 import type {
   FieldingPosition,
   TeamSide,
-  TimelineEntry,
 } from "@/lib/domain/types";
 import {
   formatBattingAverage,
@@ -18,6 +17,7 @@ import {
   formatFieldingPosition,
 } from "@/lib/domain/notation";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
+import { getPlayerInningEntries } from "@/lib/app-state/timeline-selectors";
 
 interface BattingScorebookTableProps {
   game: AppGame;
@@ -27,36 +27,6 @@ interface BattingScorebookTableProps {
 function positionLabel(position: FieldingPosition | null | undefined): string {
   if (!position) return "—";
   return formatFieldingPosition(position);
-}
-
-function getPlayerInningEntries(
-  timeline: readonly TimelineEntry[],
-  playerId: string,
-  teamSide: TeamSide,
-  inning: number
-): TimelineEntry[] {
-  return timeline.filter((entry) => {
-    if (
-      !entry.applied ||
-      entry.team !== teamSide ||
-      entry.inning !== inning
-    ) {
-      return false;
-    }
-    if (entry.event.kind === "atBat") {
-      return entry.event.batterId === playerId;
-    }
-    if (entry.event.kind === "baseRunning") {
-      return entry.event.movements.some(
-        (movement) => movement.playerId === playerId
-      );
-    }
-    return (
-      entry.event.kind === "substitution" &&
-      (entry.event.inPlayerId === playerId ||
-        entry.event.outPlayerId === playerId)
-    );
-  });
 }
 
 export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableProps) {

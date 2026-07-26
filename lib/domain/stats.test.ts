@@ -20,6 +20,7 @@ const emptySnapshot: Snapshot = {
   outs: 0,
   runners: { first: null, second: null, third: null },
   activeLineup: { away: ["away"], home: ["home"] },
+  activePitcherId: { away: null, home: null },
   currentBatterIndex: { away: 0, home: 0 },
   score: { away: 0, home: 0 },
   gameStatus: "live",
@@ -222,6 +223,58 @@ describe("timeline-derived statistics", () => {
     });
     expect(getTeamStats(timeline, "away")).toEqual({ hits: 1, errors: 1 });
     expect(getTeamStats(timeline, "home")).toEqual({ hits: 0, errors: 0 });
+  });
+
+  it("distinguishes sacrifice bunts, sacrifice flies, and uncaught third strikes", () => {
+    const timeline = [
+      timelineEntry({
+        id: "sacrifice-bunt",
+        batterId: "p1",
+        result: "sacrifice",
+      }),
+      timelineEntry({
+        id: "sacrifice-fly",
+        batterId: "p1",
+        result: "sacrificeFly",
+      }),
+      timelineEntry({
+        id: "uncaught-third-strike",
+        batterId: "p1",
+        result: "uncaughtThirdStrike",
+      }),
+    ];
+
+    expect(getPlayerBattingStats(timeline, "p1")).toMatchObject({
+      plateAppearances: 3,
+      atBats: 1,
+      strikeouts: 1,
+      sacrifice: 1,
+      sacrificeFlies: 1,
+    });
+  });
+
+  it("credits a base-running RBI to its explicitly selected batter", () => {
+    const scoringMovement: RunnerMovement = {
+      playerId: "runner",
+      from: "third",
+      to: "home",
+      isRBI: true,
+    };
+    const entry: TimelineEntry = {
+      ...timelineEntry({ id: "placeholder" }),
+      event: {
+        id: "wild-pitch",
+        kind: "baseRunning",
+        type: "wildPitch",
+        movements: [scoringMovement],
+        rbiCreditBatterId: "batter",
+      },
+      runsScored: 1,
+      scoringMovements: [scoringMovement],
+    };
+
+    expect(getPlayerBattingStats([entry], "runner").runs).toBe(1);
+    expect(getPlayerBattingStats([entry], "batter").rbi).toBe(1);
   });
 
   it("derives pitching and fielding appearance history from substitution timeline entries", () => {

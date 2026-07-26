@@ -13,13 +13,11 @@ import { cn } from "@/lib/utils";
 import type { TeamSide } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getEffectiveInningCount } from "@/lib/app-state/selectors";
-import {
-  formatAtBatNotation,
-  formatEventNotation,
-} from "@/lib/domain/notation";
+import { formatEventNotation } from "@/lib/domain/notation";
 import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
 import { BaseRunningEditDialog } from "@/components/base-running-edit-dialog";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
+import { getPlayerInningEntries } from "@/lib/app-state/timeline-selectors";
 
 interface BattingOrderPanelProps {
   game: AppGame;
@@ -185,20 +183,11 @@ function OrderList({
                 </td>
                 {Array.from({ length: inningCount }, (_, idx) => {
                   const inningNum = idx + 1;
-                  const cellEntries = game.timeline.filter(
-                    (entry) =>
-                      entry.applied &&
-                      entry.team === teamSide &&
-                      entry.inning === inningNum &&
-                      (entry.event.kind === "atBat"
-                        ? entry.event.batterId === player.id
-                        : entry.event.kind === "baseRunning"
-                          ? entry.event.movements.some(
-                            (movement) => movement.playerId === player.id
-                          )
-                          : entry.event.kind === "substitution" &&
-                            (entry.event.inPlayerId === player.id ||
-                              entry.event.outPlayerId === player.id))
+                  const cellEntries = getPlayerInningEntries(
+                    game.timeline,
+                    player.id,
+                    teamSide,
+                    inningNum
                   );
                   const isLiveColumn =
                     inningNum === game.currentState.inning &&
@@ -329,7 +318,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
             onValueChange={(v) => setActiveTab(v as TeamSide)}
             className="gap-3"
           >
-            <TabsList className="h-11 w-full min-w-0 grid grid-cols-2 p-1 sm:h-10 touch-manipulation">
+            <TabsList className="grid h-11 w-full min-w-0 grid-cols-2 p-1 touch-manipulation">
               <TabsTrigger
                 value="away"
                 className="min-w-0 text-sm px-2 data-[state=active]:font-semibold"

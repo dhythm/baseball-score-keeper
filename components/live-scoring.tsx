@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
-import type { RunnerMovement } from "@/lib/domain/types";
+import type { GameEvent, RunnerMovement } from "@/lib/domain/types";
 import {
   isAutoAdvanceAtBatResult,
   generateId,
@@ -28,6 +28,8 @@ import {
 import { getCurrentBatter } from "@/lib/app-state/selectors";
 import {
   createAtBatEvent,
+  createBaseRunningEvent,
+  createGameControlEvent,
   getDefaultMovementsForSelection,
 } from "@/lib/app-state/event-factory";
 import {
@@ -48,9 +50,10 @@ import {
   UserRoundCog,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatViolationMessage } from "@/lib/app-state/feedback";
 
 export function LiveScoring() {
-  const { game, dispatch } = useGame();
+  const { game, dispatch, addEvent } = useGame();
   const [pendingResult, setPendingResult] = useState<AtBatResult | null>(null);
   const [pendingDetail, setPendingDetail] = useState<string | undefined>();
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
@@ -62,6 +65,27 @@ export function LiveScoring() {
   if (!game) return null;
 
   const currentBatter = getCurrentBatter(game);
+
+  const recordEvent = (event: GameEvent, successMessage: string): boolean => {
+    const result = addEvent(event);
+    if (!result.accepted) {
+      toast.error(
+        result.violations[0]
+          ? formatViolationMessage(result.violations[0])
+          : "入力内容を記録できませんでした。"
+      );
+      return false;
+    }
+    const warning = result.violations.find(
+      (violation) => violation.severity === "warning"
+    );
+    if (warning) {
+      toast.warning(`${successMessage} ${formatViolationMessage(warning)}`);
+    } else {
+      toast.success(successMessage);
+    }
+    return true;
+  };
 
   const handleAtBatResult = (result: AtBatResult, detail?: string) => {
     if (!currentBatter) return;
@@ -77,58 +101,52 @@ export function LiveScoring() {
         game.currentState.outs
       );
 
-      dispatch({
-        type: "ADD_EVENT",
-        event: createAtBatEvent({
+      recordEvent(
+        createAtBatEvent({
           id: generateId(),
           batterId: currentBatter.id,
           result,
           detail,
           movements,
         }),
-      });
-      toast.success("打席を記録しました");
+        "打席を記録しました"
+      );
     } else {
       setPendingResult(result);
       setPendingDetail(detail);
     }
   };
 
-  const handleRunnerAdvanceConfirm = (
-    movements: RunnerMovement[],
-    _outsInPlay: number,
-    _runsScored: number
-  ) => {
+  const handleRunnerAdvanceConfirm = (movements: RunnerMovement[]) => {
     if (!currentBatter || !pendingResult) return;
 
-    dispatch({
-      type: "ADD_EVENT",
-      event: createAtBatEvent({
+    if (!recordEvent(
+      createAtBatEvent({
         id: generateId(),
         batterId: currentBatter.id,
         result: pendingResult,
         detail: pendingDetail,
         movements,
       }),
-    });
-    toast.success("打席を記録しました");
+      "打席を記録しました"
+    )) {
+      return;
+    }
 
     setPendingResult(null);
     setPendingDetail(undefined);
   };
 
-  const handleBaseRunningEvent = (payload: BaseRunningEventResult) => {
-    dispatch({
-      type: "ADD_EVENT",
-      event: {
+  const handleBaseRunningEvent = (payload: BaseRunningEventResult): boolean => {
+    return recordEvent(
+      createBaseRunningEvent({
         id: generateId(),
-        kind: "baseRunning",
         type: payload.type,
         movements: payload.movements,
         rbiCreditBatterId: payload.rbiCreditBatterId,
-      },
-    });
-    toast.success("走塁を記録しました");
+      }),
+      "走塁を記録しました"
+    );
   };
 
   const handleUndo = () => {
@@ -138,15 +156,15 @@ export function LiveScoring() {
   };
 
   const handleEndGame = () => {
-    dispatch({
-      type: "ADD_EVENT",
-      event: {
+    if (!recordEvent(
+      createGameControlEvent({
         id: generateId(),
-        kind: "gameControl",
-        action: "endGame",
         reason: gameEndReason,
-      },
-    });
+      }),
+      "試合終了を記録しました"
+    )) {
+      return;
+    }
     setShowEndGameDialog(false);
   };
 
@@ -162,7 +180,7 @@ export function LiveScoring() {
             type="button"
             variant="ghost"
             size="icon"
-            className="hidden h-10 w-10 text-primary-foreground hover:bg-primary-foreground/10 sm:inline-flex"
+            className="hidden h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10 sm:inline-flex"
             disabled={game.events.length === 0}
             onClick={handleUndo}
             aria-label="直前の記録を取り消す"
@@ -173,7 +191,7 @@ export function LiveScoring() {
             type="button"
             variant="ghost"
             size="icon"
-            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/10"
+            className="h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10"
             onClick={() => setSubstitutionOpen(true)}
             aria-label="選手交代"
           >
@@ -182,7 +200,7 @@ export function LiveScoring() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation"
+            className="h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation"
             onClick={() => setShowEndGameDialog(true)}
             aria-label="試合終了"
           >
@@ -265,8 +283,9 @@ export function LiveScoring() {
           <BaseRunningEventSheet
             game={game}
             onEvent={(p) => {
-              handleBaseRunningEvent(p);
-              setBaseRunningOpen(false);
+              if (handleBaseRunningEvent(p)) {
+                setBaseRunningOpen(false);
+              }
             }}
           />
         </SheetContent>
@@ -285,9 +304,9 @@ export function LiveScoring() {
           <SubstitutionSheet
             game={game}
             onSubmit={(event) => {
-              dispatch({ type: "ADD_EVENT", event });
-              toast.success("選手交代を記録しました");
-              setSubstitutionOpen(false);
+              if (recordEvent(event, "選手交代を記録しました")) {
+                setSubstitutionOpen(false);
+              }
             }}
           />
         </SheetContent>

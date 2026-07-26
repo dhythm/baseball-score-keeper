@@ -158,7 +158,10 @@ export function getDefaultMovements(
     case "fieldersChoice": {
       const movements: RunnerMovement[] = [];
       if (runners.first) {
-        movements.push(move(runners.first, "first", "out"));
+        movements.push({
+          ...move(runners.first, "first", "out"),
+          outType: "force",
+        });
       }
       movements.push(move(batterId, "batter", "first"));
       return movements;

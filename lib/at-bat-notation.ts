@@ -49,9 +49,15 @@ export function buildFieldersChoiceDetail(pos: FieldingPosition): string {
   return `${fieldingPosLabel(pos)}野選`;
 }
 
-/** その他アウト（内野安など） */
+/** Hits whose notation does not need a fielding-direction step. */
+export const HIT_KINDS: {
+  result: Extract<AtBatResult, "single">;
+  detail: string;
+  label: string;
+}[] = [{ result: "single", detail: "内野安", label: "内野安" }];
+
+/** Other outs without a specific fielding position. */
 export const OTHER_OUT_DETAILS: { result: AtBatResult; detail: string; label: string }[] = [
-  { result: "otherOut", detail: "内野安", label: "内野安" },
   { result: "otherOut", detail: "その他", label: "その他" },
 ];
 

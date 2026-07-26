@@ -16,6 +16,7 @@ import type {
 export const SCHEMA_VERSION = 2 as const;
 export const DEFAULT_GAME_STORAGE_KEY = "baseball-scorer-game";
 export const DEFAULT_GAME_HISTORY_STORAGE_KEY = "baseball-scorer-games";
+export const MAX_STORED_GAMES = 10;
 
 export interface PersistedGameV2 {
   id: string;
@@ -283,6 +284,8 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
     !["setup", "live", "finished"].includes(String(value.status)) ||
     !isRecord(value.config) ||
     typeof value.config.regulationInnings !== "number" ||
+    !Number.isInteger(value.config.regulationInnings) ||
+    value.config.regulationInnings < 1 ||
     !isRecord(value.config.teams) ||
     !isStoredTeam(value.config.teams.away) ||
     !isStoredTeam(value.config.teams.home) ||
@@ -301,12 +304,20 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
         return (
           typeof event.batterId === "string" &&
           typeof event.result === "string" &&
-          Array.isArray(event.movements)
+          AT_BAT_RESULTS.has(event.result) &&
+          isRunnerMovementList(event.movements) &&
+          (event.note === undefined || typeof event.note === "string") &&
+          (event.battedBall === undefined ||
+            isStoredBattedBall(event.battedBall))
         );
       }
       if (event.kind === "baseRunning") {
         return (
-          typeof event.type === "string" && Array.isArray(event.movements)
+          typeof event.type === "string" &&
+          BASE_RUNNING_TYPES.has(event.type) &&
+          isRunnerMovementList(event.movements) &&
+          (event.rbiCreditBatterId === undefined ||
+            typeof event.rbiCreditBatterId === "string")
         );
       }
       if (event.kind === "substitution") {
@@ -327,12 +338,97 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
     });
 }
 
+const FIELDING_POSITIONS = new Set([
+  "pitcher",
+  "catcher",
+  "first",
+  "second",
+  "third",
+  "short",
+  "left",
+  "center",
+  "right",
+  "dh",
+]);
+
+const AT_BAT_RESULTS = new Set([
+  "single",
+  "double",
+  "triple",
+  "homerun",
+  "groundOut",
+  "flyOut",
+  "strikeoutSwinging",
+  "strikeoutLooking",
+  "otherOut",
+  "walk",
+  "hitByPitch",
+  "error",
+  "sacrifice",
+  "sacrificeFly",
+  "fieldersChoice",
+  "interference",
+  "uncaughtThirdStrike",
+]);
+
+const BASE_RUNNING_TYPES = new Set([
+  "steal",
+  "caughtStealing",
+  "wildPitch",
+  "passedBall",
+  "pickOff",
+  "balk",
+]);
+
+const RUNNER_ORIGINS = new Set(["batter", "first", "second", "third"]);
+const RUNNER_DESTINATIONS = new Set([
+  "first",
+  "second",
+  "third",
+  "home",
+  "out",
+]);
+
+function isRunnerMovementList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (movement) =>
+        isRecord(movement) &&
+        typeof movement.playerId === "string" &&
+        typeof movement.from === "string" &&
+        RUNNER_ORIGINS.has(movement.from) &&
+        typeof movement.to === "string" &&
+        RUNNER_DESTINATIONS.has(movement.to) &&
+        typeof movement.isRBI === "boolean" &&
+        (movement.outType === undefined ||
+          (movement.to === "out" &&
+            ["force", "tag"].includes(String(movement.outType))))
+    )
+  );
+}
+
+function isStoredBattedBall(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.position === "string" &&
+    FIELDING_POSITIONS.has(value.position) &&
+    ["ground", "fly", "liner", "bunt"].includes(String(value.type))
+  );
+}
+
 function isStoredPlayer(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    typeof value.order === "number"
+    typeof value.order === "number" &&
+    Number.isInteger(value.order) &&
+    value.order > 0 &&
+    (value.position === undefined ||
+      value.position === null ||
+      (typeof value.position === "string" &&
+        FIELDING_POSITIONS.has(value.position)))
   );
 }
 
@@ -344,7 +440,12 @@ function isStoredTeam(value: unknown): boolean {
     value.players.every(isStoredPlayer) &&
     (value.benchPlayers === undefined ||
       (Array.isArray(value.benchPlayers) &&
-        value.benchPlayers.every(isStoredPlayer)))
+        value.benchPlayers.every(isStoredPlayer))) &&
+    (value.startingPitcherId === undefined ||
+      value.startingPitcherId === null ||
+      typeof value.startingPitcherId === "string") &&
+    (value.startingPitcherName === undefined ||
+      typeof value.startingPitcherName === "string")
   );
 }
 
@@ -474,7 +575,7 @@ export function createGameRepository(
     );
     const activeGame = activeStorage.load();
     if (activeGame) gamesById.set(activeGame.id, activeGame);
-    return newestFirst([...gamesById.values()]);
+    return newestFirst([...gamesById.values()]).slice(0, MAX_STORED_GAMES);
   }
 
   return {
@@ -489,7 +590,9 @@ export function createGameRepository(
       gamesById.set(game.id, game);
       storage.setItem(
         historyKey,
-        serializeGameHistory(newestFirst([...gamesById.values()]))
+        serializeGameHistory(
+          newestFirst([...gamesById.values()]).slice(0, MAX_STORED_GAMES)
+        )
       );
       activeStorage.save(game);
     },

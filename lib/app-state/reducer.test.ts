@@ -258,6 +258,70 @@ describe("app-state gameReducer", () => {
       })
     );
   });
+
+  it("rejects a newly added invalid event instead of silently storing it", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([
+        {
+          id: "first",
+          kind: "atBat",
+          batterId: "away-1",
+          result: "single",
+          movements: [
+            {
+              playerId: "away-1",
+              from: "batter",
+              to: "first",
+              isRBI: false,
+            },
+          ],
+        },
+      ]),
+    });
+    const rejected = gameReducer(loaded, {
+      type: "ADD_EVENT",
+      event: {
+        id: "collision",
+        kind: "atBat",
+        batterId: "away-2",
+        result: "single",
+        movements: [
+          {
+            playerId: "away-2",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+      },
+    });
+
+    expect(rejected).toBe(loaded);
+    expect(rejected?.events.map((event) => event.id)).toEqual(["first"]);
+  });
+
+  it("rejects an invalid event edit and keeps the previous replay state", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1")]),
+    });
+    const rejected = gameReducer(loaded, {
+      type: "UPDATE_EVENT",
+      eventId: "first",
+      event: {
+        id: "ignored",
+        kind: "atBat",
+        batterId: "missing-player",
+        result: "single",
+        movements: [],
+      },
+    });
+
+    expect(rejected).toBe(loaded);
+    expect(rejected?.events[0]).toEqual(out("first", "away-1"));
+    expect(rejected?.currentState.outs).toBe(1);
+  });
 });
 
 describe("app-state selectors", () => {

@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { RunnerMovement, Runners } from "./types";
+import type { RunnerMovement } from "./types";
 import {
   getDefaultMovements,
   validateMovementShape,
 } from "./rules";
-
-const emptyRunners: Runners = {
-  first: null,
-  second: null,
-  third: null,
-};
 
 function movement(
   playerId: string,
@@ -101,7 +95,7 @@ describe("getDefaultMovements", () => {
         0
       )
     ).toEqual([
-      movement("r1", "first", "out"),
+      { ...movement("r1", "first", "out"), outType: "force" },
       movement("batter", "batter", "first"),
     ]);
   });

@@ -78,6 +78,11 @@ export interface RunnerMovement {
   from: RunnerOrigin;
   to: RunnerDestination;
   isRBI: boolean;
+  /**
+   * Describes how an out was recorded when that distinction affects scoring.
+   * Omitted for legacy events and for outs where the distinction is irrelevant.
+   */
+  outType?: "force" | "tag";
 }
 
 export interface BattedBall {
@@ -149,6 +154,8 @@ export interface Snapshot {
   runners: Runners;
   /** Current player id in each batting-order slot. */
   activeLineup: Record<TeamSide, string[]>;
+  /** Current pitcher, independent from the batting order for DH games. */
+  activePitcherId: Record<TeamSide, string | null>;
   currentBatterIndex: Record<TeamSide, number>;
   score: Score;
   gameStatus: "live" | "finished";
@@ -175,6 +182,7 @@ export type ViolationCode =
   | "DUPLICATE_DESTINATION"
   | "BACKWARD_MOVEMENT"
   | "INVALID_RBI"
+  | "OUTS_EXCEED_HALF_INNING"
   | "SUBSTITUTION_PLAYER_NOT_ON_TEAM"
   | "SUBSTITUTION_OUT_PLAYER_NOT_ACTIVE"
   | "SUBSTITUTION_IN_PLAYER_ALREADY_ACTIVE"

@@ -1,4 +1,5 @@
 import { replay } from "../domain/replay";
+import type { GameEvent, Violation } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 import type { AppGame, AppGameState, GameAction } from "./types";
 
@@ -44,6 +45,54 @@ function persistedInput(
   };
 }
 
+export interface EventCommandResult {
+  accepted: boolean;
+  nextState: AppGame;
+  violations: Violation[];
+}
+
+export function evaluateEventAddition(
+  state: AppGame,
+  event: GameEvent
+): EventCommandResult {
+  const nextState = deriveGame(
+    persistedInput(state, [...state.events, event]),
+    state.manualEnded
+  );
+  const entry = nextState.timeline.at(-1);
+  return {
+    accepted: entry?.event.id === event.id && entry.applied,
+    nextState,
+    violations: nextState.violations.filter(
+      (item) => item.eventId === event.id
+    ),
+  };
+}
+
+export function evaluateEventUpdate(
+  state: AppGame,
+  eventId: string,
+  replacement: GameEvent
+): EventCommandResult | null {
+  const eventIndex = state.events.findIndex((event) => event.id === eventId);
+  if (eventIndex === -1) return null;
+  const events = [...state.events];
+  const event = { ...replacement, id: eventId };
+  events[eventIndex] = event;
+  const nextState = deriveGame(
+    persistedInput(state, events),
+    state.manualEnded
+  );
+  const entry = nextState.timeline[eventIndex];
+  return {
+    accepted: entry?.event.id === eventId && entry.applied,
+    nextState,
+    violations: nextState.violations.filter(
+      (item) => item.eventId === eventId
+    ),
+  };
+}
+
 export function gameReducer(
   state: AppGameState,
   action: GameAction
@@ -66,23 +115,19 @@ export function gameReducer(
 
     case "ADD_EVENT":
       if (!state) return null;
-      return deriveGame(
-        persistedInput(state, [...state.events, action.event]),
-        state.manualEnded
-      );
+      {
+        const result = evaluateEventAddition(state, action.event);
+        return result.accepted ? result.nextState : state;
+      }
 
     case "UPDATE_EVENT": {
       if (!state) return null;
-      const eventIndex = state.events.findIndex(
-        (event) => event.id === action.eventId
+      const result = evaluateEventUpdate(
+        state,
+        action.eventId,
+        action.event
       );
-      if (eventIndex === -1) return state;
-      const events = [...state.events];
-      events[eventIndex] = { ...action.event, id: action.eventId };
-      return deriveGame(
-        persistedInput(state, events),
-        state.manualEnded
-      );
+      return result?.accepted ? result.nextState : state;
     }
 
     case "DELETE_EVENT": {

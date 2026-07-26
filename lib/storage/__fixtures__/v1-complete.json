@@ -1,0 +1,103 @@
+{
+  "id": "fixture-summer-final",
+  "date": "2025-08-17T01:30:00.000Z",
+  "totalInnings": 7,
+  "status": "finished",
+  "teams": {
+    "away": {
+      "name": "青空クラブ",
+      "players": [
+        { "id": "away-1", "name": "山田", "order": 1, "position": "short" },
+        { "id": "away-2", "name": "田中", "order": 2, "position": "center" }
+      ],
+      "startingPitcherId": null,
+      "startingPitcherName": "佐藤"
+    },
+    "home": {
+      "name": "河川敷スターズ",
+      "players": [
+        { "id": "home-1", "name": "鈴木", "order": 1, "position": "second" },
+        { "id": "home-2", "name": "高橋", "order": 2, "position": "pitcher" }
+      ],
+      "startingPitcherId": "home-2",
+      "startingPitcherName": "高橋"
+    }
+  },
+  "events": [
+    {
+      "id": "fixture-hit",
+      "type": "atBat",
+      "inning": 1,
+      "half": "top",
+      "team": "away",
+      "batterId": "away-1",
+      "result": "single",
+      "resultDetail": "遊安",
+      "runnerMovements": [
+        {
+          "playerId": "away-1",
+          "from": "batter",
+          "to": "first",
+          "isRBI": false
+        }
+      ],
+      "outsInPlay": 0,
+      "runsScored": 0,
+      "timestamp": "2025-08-17T01:31:00.000Z"
+    },
+    {
+      "id": "fixture-steal",
+      "type": "baseRunning",
+      "inning": 1,
+      "half": "top",
+      "team": "away",
+      "runnerMovements": [
+        {
+          "playerId": "away-1",
+          "from": "first",
+          "to": "second",
+          "isRBI": false
+        }
+      ],
+      "baseRunningType": "steal",
+      "rbiCreditBatterId": "away-2",
+      "outsInPlay": 0,
+      "runsScored": 0,
+      "timestamp": "2025-08-17T01:32:00.000Z"
+    },
+    {
+      "id": "fixture-double-play",
+      "type": "atBat",
+      "inning": 7,
+      "half": "bottom",
+      "team": "home",
+      "batterId": "home-1",
+      "result": "doublePlay",
+      "resultDetail": "遊併",
+      "runnerMovements": [
+        {
+          "playerId": "home-1",
+          "from": "batter",
+          "to": "out",
+          "isRBI": false
+        },
+        {
+          "playerId": "home-2",
+          "from": "first",
+          "to": "out",
+          "isRBI": false
+        }
+      ],
+      "outsInPlay": 2,
+      "runsScored": 0,
+      "timestamp": "2025-08-17T03:02:00.000Z"
+    }
+  ],
+  "currentState": {
+    "inning": 7,
+    "half": "bottom",
+    "outs": 3,
+    "runners": { "first": null, "second": null, "third": null },
+    "currentBatterIndex": { "away": 0, "home": 1 }
+  }
+}

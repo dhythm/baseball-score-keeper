@@ -1,141 +1,100 @@
-# 野球スコアラー
+# スコアブック
 
-## 初期セットアップ（プロジェクト作成時）
+草野球の試合を、ベンチからスマートフォンで記録するためのスコアリングアプリです。打席、走塁、選手交代、得点、打撃・投手成績を一つの画面で管理できます。
 
-以下は git clone した場合は不要です。プロジェクトを一から作成する際の手順を参考用に残しています。
+データはブラウザ内に保存されます。アカウント登録やサーバーへの送信はありません。
 
+## 主な機能
+
+- 5回・7回・9回・任意イニングの試合設定
+- 両チームの打順、守備位置、控え選手、先発投手の登録
+- DH使用時の打順外投手と投手交代
+- 安打、アウト、四死球、失策、犠打、野選、打撃妨害、振り逃げの入力
+- 打者と各走者の進塁、アウト、打点の確認・調整
+- 盗塁、盗塁死、牽制死、暴投、捕逸、ボークの記録
+- 代打、代走、守備交代、投手交代
+- 直前プレーの取り消しと過去打席・走塁イベントの修正
+- イニングスコア、打順表、打撃成績、投手別成績の自動集計
+- 最大10試合の履歴保存、再開、削除
+- Web Share APIによる結果共有とJSON書き出し
+- ホーム画面への追加と、初回読込後のオフライン利用
+
+## 使い方
+
+1. チーム名、イニング数、選手、守備位置、先発投手を登録します。
+2. 「試合を開始」を押します。
+3. 打席終了ごとに「結果入力」から結果を選び、必要に応じて走者の進塁を確認します。
+4. 走塁だけのプレーや選手交代は、試合画面の専用ボタンから記録します。
+5. 誤入力は直前プレーの取り消し、または打順表の記録セルから修正します。
+6. 試合終了後に成績を確認し、共有またはJSON保存します。
+
+画面はスマートフォンでの片手操作を優先しています。入力ダイアログは下部から開き、主要な操作領域は44px以上を確保しています。横に広いスコア表は表の中だけをスクロールできます。
+
+## 記録と判定
+
+試合データは、入力したイベントを先頭から再生して現在状態を導出する方式です。過去のプレーを修正・削除した場合も、イニング、アウト、走者、打順、得点、成績を再計算します。
+
+不正な入力は保存前に拒否されます。代表例は次のとおりです。
+
+- 現在打者と異なる選手の打席
+- 同じ走者や移動元の重複
+- 占有済みの塁への重複進塁
+- 1プレーで3アウトを超える入力
+- 出場していない選手を対象にした交代
+
+第3アウトがフォースアウトの場合は、そのプレー中の得点と打点を計上しません。振り逃げは自動確定せず、打者と走者の進塁を確認できます。
+
+## データ保存とオフライン
+
+- 現在の試合と直近10試合を `localStorage` に保存します。
+- 保存形式はschema v2です。旧v1データは読込時に移行します。
+- 読み込んだデータは構造と値を検証し、破損データは使用しません。
+- Service Workerは本番環境で登録されます。一度オンラインで開いた後は、キャッシュ済みのアプリをオフラインでも利用できます。
+- オフライン時は画面上部に状態を表示します。記録は引き続き端末内へ保存されます。
+
+ブラウザのサイトデータを削除すると履歴も消えます。機種変更や長期保存が必要な試合は、試合終了画面からJSONを書き出してください。現時点ではJSONの再インポートと端末間同期には対応していません。
+
+## 開発
+
+必要環境:
+
+- Node.js 20以降
+- pnpm
+
+```bash
+pnpm install
+pnpm dev
 ```
-touch README.md && cat << 'EOF' > CLAUDE.md
-# CLAUDE.md
 
-## Context
+`http://localhost:3000` を開きます。
 
-- see @AGENTS.md
-EOF
-cat << 'EOF' > AGENTS.md
-# AGENTS.md
+品質確認:
 
-## Guideline
-
-- follow TDD, follow t-wada method
-- read the latest code when starting a new task, because it might be updated independently of your work
-
-### Naming Rules
-
-- Variable names, function names, and database column names should be written in English.
-- Romanized Japanese (romaji) should be avoided and only used when absolutely necessary.
-
-Example:
-- Good: `last_name_kana`
-- Bad: `sei_kana`
-
-- Use plural names only for arrays.
-- Use singular names for non-array values.
-
----
-
-## Workflow
-
-### 1. Plan Mode Default
-
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately – don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
-
-### 2. Subagent Strategy
-
-- Use subagents liberally to keep main context window clean
-Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-
-### 3. Self-Improvement Loop
-
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start forelevant project
-
-### 4. Verification Before Done
-
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-### 5. Demand Elegance
-
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes – don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomo Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests – then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
----
-
-## Task Management
-
-1. Plan First: Write plan to `tasks/todo.md` with checkable items
-2. Verify Plan: Check in before starting implementation
-3. Track Progress: Mark items complete as you go
-4. ExplChanges: High-level summary at each step
-5. Document Results: Add review section to `tasks/todo.md`
-6. Capture Lessons: Update `tasks/lessons.md` after corrections
-
----
-
-## Core Principles
-
-- Simplicity First: Make every change as simple as possible. Impact minimal code.
-- No Laziness: Find root causes. No temporary fixes. Senior developer standards.
-- Minimal Impact: Changes should only touch what's necessary. Avoid introducing bugs.
-
----
-
-## Development Environment
-
-- use `pnpm` as a package manager
-- use `vitest` for testing
-
-EOF
-cat << 'EOF' > .gitignore
-# See https://hp.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files
-.env*
-!.env*.example
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-/tasks/
-EOF
-pnpm install && git init
+```bash
+pnpm lint
+pnpm exec tsc --noEmit
+pnpm test
+pnpm build
 ```
+
+## 構成
+
+```text
+app/                  Next.js App Router、メタデータ、PWA manifest
+components/           セットアップ、試合入力、結果画面、UI部品
+lib/app-state/        アプリ状態、イベント作成、入力コマンド、表示用selector
+lib/domain/           ルール、replay、統計、表記、投手成績
+lib/storage/          localStorage、schema検証、v1からv2への移行
+lib/export/           テキスト共有、JSON書き出し
+public/sw.js          オフラインキャッシュ
+```
+
+`config` と `events` が保存上の正本です。現在の試合状態、タイムライン、成績は `lib/domain/replay.ts` を通じて都度導出します。
+
+## 技術スタック
+
+- Next.js 16 / React 19 / TypeScript
+- Tailwind CSS 4
+- Radix UI
+- Vitest
+- ESLint

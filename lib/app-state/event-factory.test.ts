@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAtBatEvent,
+  createBaseRunningEvent,
+  createGameControlEvent,
+  createSubstitutionEvent,
   getDefaultMovementsForSelection,
 } from "./event-factory";
 
@@ -89,5 +92,56 @@ describe("createAtBatEvent", () => {
         0
       )
     ).toHaveLength(2);
+  });
+});
+
+describe("management event factories", () => {
+  it("creates base-running input without derived placement", () => {
+    expect(
+      createBaseRunningEvent({
+        id: "run",
+        type: "steal",
+        movements: [
+          {
+            playerId: "runner",
+            from: "first",
+            to: "second",
+            isRBI: false,
+          },
+        ],
+      })
+    ).toEqual({
+      id: "run",
+      kind: "baseRunning",
+      type: "steal",
+      movements: [
+        {
+          playerId: "runner",
+          from: "first",
+          to: "second",
+          isRBI: false,
+        },
+      ],
+    });
+  });
+
+  it("creates substitution and game-control input events", () => {
+    expect(
+      createSubstitutionEvent({
+        id: "sub",
+        team: "home",
+        inPlayerId: "reliever",
+        outPlayerId: "starter",
+        role: "pitcher",
+      })
+    ).toMatchObject({ id: "sub", kind: "substitution", role: "pitcher" });
+    expect(
+      createGameControlEvent({ id: "end", reason: "時間切れ" })
+    ).toEqual({
+      id: "end",
+      kind: "gameControl",
+      action: "endGame",
+      reason: "時間切れ",
+    });
   });
 });

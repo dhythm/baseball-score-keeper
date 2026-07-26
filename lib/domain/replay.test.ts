@@ -93,6 +93,7 @@ describe("replay", () => {
       outs: 0,
       runners: { first: null, second: null, third: null },
       activeLineup: { away: ["away-1"], home: ["home-1"] },
+      activePitcherId: { away: null, home: null },
       currentBatterIndex: { away: 0, home: 0 },
       score: { away: 0, home: 0 },
       gameStatus: "live",
@@ -279,6 +280,160 @@ describe("replay", () => {
       movements: doubleOutMovements,
     });
     expect(result.snapshot.outs).toBe(2);
+  });
+
+  it("does not count a run when a force play records the third out", () => {
+    const events: GameEvent[] = [
+      atBat("runner-third", "away-1", [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "third",
+          isRBI: false,
+        },
+      ]),
+      atBat("runner-first", "away-2", [
+        {
+          playerId: "away-2",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ]),
+      out("first-out", "away-3"),
+      out("second-out", "away-4"),
+      atBat("force-third-out", "away-5", [
+        {
+          playerId: "away-1",
+          from: "third",
+          to: "home",
+          isRBI: true,
+        },
+        {
+          playerId: "away-2",
+          from: "first",
+          to: "out",
+          isRBI: false,
+          outType: "force",
+        },
+        {
+          playerId: "away-5",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ]),
+    ];
+
+    const result = replay(events, config(7, 5, 1));
+
+    expect(result.snapshot.score.away).toBe(0);
+    expect(result.timeline.at(-1)?.scoringMovements).toEqual([]);
+  });
+
+  it("rejects a play that records more outs than remain in the half-inning", () => {
+    const events: GameEvent[] = [
+      atBat(
+        "runner-first",
+        "away-1",
+        [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+        "single"
+      ),
+      out("first-out", "away-2"),
+      out("second-out", "away-3"),
+      atBat("too-many-outs", "away-4", [
+        {
+          playerId: "away-4",
+          from: "batter",
+          to: "out",
+          isRBI: false,
+        },
+        {
+          playerId: "away-1",
+          from: "first",
+          to: "out",
+          isRBI: false,
+        },
+      ]),
+    ];
+
+    const result = replay(events, config(7, 4, 1));
+
+    expect(result.timeline.at(-1)?.applied).toBe(false);
+    expect(result.snapshot).toMatchObject({ half: "top", outs: 2 });
+    expect(
+      result.violations.filter(
+        (item) => item.eventId === "too-many-outs"
+      )
+    ).toHaveLength(1);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({
+        code: "OUTS_EXCEED_HALF_INNING",
+        eventId: "too-many-outs",
+      })
+    );
+  });
+
+  it("replays a multi-runner base-running score", () => {
+    const events: GameEvent[] = [
+      atBat("runner-third", "away-1", [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "third",
+          isRBI: false,
+        },
+      ]),
+      atBat("runner-first", "away-2", [
+        {
+          playerId: "away-2",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ]),
+      {
+        id: "double-steal",
+        kind: "baseRunning",
+        type: "steal",
+        movements: [
+          {
+            playerId: "away-1",
+            from: "third",
+            to: "home",
+            isRBI: true,
+          },
+          {
+            playerId: "away-2",
+            from: "first",
+            to: "second",
+            isRBI: false,
+          },
+        ],
+        rbiCreditBatterId: "away-2",
+      },
+    ];
+
+    const result = replay(events, config(7, 2, 1));
+
+    expect(result.timeline.at(-1)).toMatchObject({
+      applied: true,
+      runsScored: 1,
+      scoringMovements: [
+        expect.objectContaining({ playerId: "away-1", isRBI: true }),
+      ],
+    });
+    expect(result.snapshot).toMatchObject({
+      score: { away: 1, home: 0 },
+      runners: { first: null, second: "away-2", third: null },
+    });
   });
 
   it("re-derives every later inning placement when an earlier event is removed", () => {
@@ -586,6 +741,45 @@ describe("replay", () => {
       applied: true,
     });
     expect(result.snapshot.activeLineup.home).toEqual(["home-reliever"]);
+    expect(result.snapshot.activePitcherId.home).toBe("home-reliever");
+  });
+
+  it("changes a starting pitcher outside the batting order without replacing a DH slot", () => {
+    const gameConfig = config();
+    gameConfig.teams.home.players[0].position = "dh";
+    gameConfig.teams.home.benchPlayers = [
+      {
+        id: "home-starter",
+        name: "Starting pitcher",
+        order: 0,
+        position: "pitcher",
+      },
+      {
+        id: "home-reliever",
+        name: "Relief pitcher",
+        order: 0,
+        position: "pitcher",
+      },
+    ];
+    gameConfig.teams.home.startingPitcherId = "home-starter";
+
+    const result = replay(
+      [
+        substitution(
+          "dh-pitching-change",
+          "home",
+          "home-reliever",
+          "home-starter",
+          "pitcher"
+        ),
+      ],
+      gameConfig
+    );
+
+    expect(result.timeline[0].applied).toBe(true);
+    expect(result.snapshot.activePitcherId.home).toBe("home-reliever");
+    expect(result.snapshot.activeLineup.home).toEqual(["home-1"]);
+    expect(result.violations).toEqual([]);
   });
 
   it("ends immediately when an end-game control event is replayed", () => {

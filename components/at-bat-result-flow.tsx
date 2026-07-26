@@ -12,6 +12,7 @@ import {
   buildDoublePlayDetail,
   buildErrorDetail,
   buildFieldersChoiceDetail,
+  HIT_KINDS as DIRECT_HIT_KINDS,
   OTHER_OUT_DETAILS,
   SACRIFICE_DETAILS,
   fieldingPosLabel,
@@ -253,7 +254,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -271,6 +272,17 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
               {label}
             </Button>
           ))}
+          {DIRECT_HIT_KINDS.map(({ result, label, detail }) => (
+            <Button
+              key={detail}
+              type="button"
+              variant="secondary"
+              className="h-12 touch-manipulation text-sm font-medium"
+              onClick={() => onSubmit(result, detail)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
       </div>
     );
@@ -280,7 +292,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -295,7 +307,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -329,7 +341,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -356,7 +368,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -371,7 +383,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -403,7 +415,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -418,7 +430,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -458,7 +470,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>
@@ -485,7 +497,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={goBack}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-3" onClick={goBack}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             戻る
           </Button>

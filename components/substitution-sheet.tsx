@@ -17,6 +17,7 @@ import type {
   TeamSide,
 } from "@/lib/domain/types";
 import { generateId } from "@/lib/game-utils";
+import { createSubstitutionEvent } from "@/lib/app-state/event-factory";
 
 const ROLE_OPTIONS: { value: SubstitutionRole; label: string }[] = [
   { value: "pinchHitter", label: "代打" },
@@ -55,27 +56,31 @@ export function SubstitutionSheet({
     [game.config.teams, team]
   );
   const activeIds = game.currentState.activeLineup[team];
+  const activePitcherId = game.currentState.activePitcherId[team];
   const runnerIds = Object.values(game.currentState.runners).filter(
     (playerId): playerId is string => playerId !== null
   );
   const outCandidates = roster.filter((player) => {
     if (role === "pinchRunner") return runnerIds.includes(player.id);
+    if (role === "pitcher" && activePitcherId) {
+      return player.id === activePitcherId;
+    }
     return activeIds.includes(player.id);
   });
   const inCandidates = roster.filter(
-    (player) => !activeIds.includes(player.id)
+    (player) =>
+      !activeIds.includes(player.id) && player.id !== activePitcherId
   );
 
   const handleSubmit = () => {
     if (!outPlayerId || !inPlayerId) return;
-    onSubmit({
+    onSubmit(createSubstitutionEvent({
       id: generateId(),
-      kind: "substitution",
       team,
       role,
       outPlayerId,
       inPlayerId,
-    });
+    }));
   };
 
   return (

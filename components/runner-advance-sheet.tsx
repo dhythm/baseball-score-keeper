@@ -17,6 +17,7 @@ import type { AppGame } from "@/lib/app-state/types";
 import { getCurrentBatter, getPlayerById } from "@/lib/app-state/selectors";
 import { getDefaultMovementsForSelection } from "@/lib/app-state/event-factory";
 import { RESULT_LABELS } from "@/lib/types";
+import { initializeRbiByPlayerId } from "@/lib/domain/runner-advance";
 
 type Destination = Base | "home" | "out";
 
@@ -53,6 +54,7 @@ interface RunnerState {
   name: string;
   from: "batter" | Base;
   to: Destination;
+  outType?: RunnerMovement["outType"];
 }
 
 export function RunnerAdvanceSheet({
@@ -106,6 +108,7 @@ export function RunnerAdvanceSheet({
         name: player?.name ?? "不明",
         from: "third",
         to: defaultMovement?.to ?? "third",
+        outType: defaultMovement?.outType,
       });
     }
 
@@ -117,6 +120,7 @@ export function RunnerAdvanceSheet({
         name: player?.name ?? "不明",
         from: "second",
         to: defaultMovement?.to ?? "second",
+        outType: defaultMovement?.outType,
       });
     }
 
@@ -128,6 +132,7 @@ export function RunnerAdvanceSheet({
         name: player?.name ?? "不明",
         from: "first",
         to: defaultMovement?.to ?? "first",
+        outType: defaultMovement?.outType,
       });
     }
 
@@ -137,16 +142,18 @@ export function RunnerAdvanceSheet({
       name: currentBatter.name,
       from: "batter",
       to: batterMovement?.to ?? "first",
+      outType: batterMovement?.outType,
     });
 
     setRunnerStates(states);
-    const rbi: Record<string, boolean> = {};
-    for (const r of states) {
-      if (r.to === "home") {
-        rbi[r.playerId] = defaultRbiWhenScoring(result, r.from, r.to);
-      }
-    }
-    setRbiByPlayerId(rbi);
+    setRbiByPlayerId(
+      initializeRbiByPlayerId(
+        result,
+        states,
+        initialMovements,
+        defaultRbiWhenScoring
+      )
+    );
   }, [open, game, runners, currentBatter, initialMovements, result]);
 
   const updateRunnerDestination = (playerId: string, to: Destination) => {
@@ -163,7 +170,15 @@ export function RunnerAdvanceSheet({
           return next;
         });
       }
-      return prev.map((r) => (r.playerId === playerId ? { ...r, to } : r));
+      return prev.map((r) =>
+        r.playerId === playerId
+          ? {
+              ...r,
+              to,
+              ...(to === r.to ? {} : { outType: undefined }),
+            }
+          : r
+      );
     });
   };
 
@@ -264,6 +279,7 @@ export function RunnerAdvanceSheet({
         from: r.from,
         to: r.to,
         isRBI,
+        ...(r.to === "out" && r.outType ? { outType: r.outType } : {}),
       };
     });
 

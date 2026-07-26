@@ -1,0 +1,32 @@
+import type { TeamSide, TimelineEntry } from "../domain/types";
+
+export function getPlayerInningEntries(
+  timeline: readonly TimelineEntry[],
+  playerId: string,
+  teamSide: TeamSide,
+  inning: number
+): TimelineEntry[] {
+  return timeline.filter((entry) => {
+    if (
+      !entry.applied ||
+      entry.team !== teamSide ||
+      entry.inning !== inning
+    ) {
+      return false;
+    }
+    if (entry.event.kind === "atBat") {
+      return entry.event.batterId === playerId;
+    }
+    if (entry.event.kind === "baseRunning") {
+      return entry.event.movements.some(
+        (movement) => movement.playerId === playerId
+      );
+    }
+    return (
+      entry.event.kind === "substitution" &&
+      (entry.event.inPlayerId === playerId ||
+        entry.event.outPlayerId === playerId)
+    );
+  });
+}
+

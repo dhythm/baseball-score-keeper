@@ -24,6 +24,13 @@ const BASE_NUMBER: Record<Base, number> = {
 };
 
 function initialSnapshot(config: GameConfig): Snapshot {
+  const initialPitcherId = (team: TeamSide): string | null =>
+    config.teams[team].startingPitcherId ??
+    config.teams[team].players.find(
+      (player) => player.position === "pitcher"
+    )?.id ??
+    null;
+
   return {
     inning: 1,
     half: "top",
@@ -32,6 +39,10 @@ function initialSnapshot(config: GameConfig): Snapshot {
     activeLineup: {
       away: config.teams.away.players.map((player) => player.id),
       home: config.teams.home.players.map((player) => player.id),
+    },
+    activePitcherId: {
+      away: initialPitcherId("away"),
+      home: initialPitcherId("home"),
     },
     currentBatterIndex: { away: 0, home: 0 },
     score: { away: 0, home: 0 },
@@ -47,6 +58,7 @@ function copySnapshot(snapshot: Snapshot): Snapshot {
       away: [...snapshot.activeLineup.away],
       home: [...snapshot.activeLineup.home],
     },
+    activePitcherId: { ...snapshot.activePitcherId },
     currentBatterIndex: { ...snapshot.currentBatterIndex },
     score: { ...snapshot.score },
   };
@@ -181,6 +193,21 @@ function validateEvent(
     ];
   }
   if (event.kind === "gameControl") return violations;
+
+  const outsInPlay = event.movements.filter(
+    (movement) => movement.to === "out"
+  ).length;
+  if (snapshot.outs + outsInPlay > 3) {
+    violations.push(
+      violation(
+        event,
+        eventIndex,
+        "OUTS_EXCEED_HALF_INNING",
+        "error",
+        `play records ${outsInPlay} outs with ${snapshot.outs} already recorded`
+      )
+    );
+  }
 
   const seenSources = new Set<string>();
   const seenPlayers = new Set<string>();
@@ -337,6 +364,7 @@ function validateSubstitution(
     ].map((player) => player.id)
   );
   const activeLineup = snapshot.activeLineup[event.team];
+  const activePitcherId = snapshot.activePitcherId[event.team];
 
   if (!rosterIds.has(event.inPlayerId) || !rosterIds.has(event.outPlayerId)) {
     violations.push(
@@ -349,7 +377,11 @@ function validateSubstitution(
       )
     );
   }
-  if (!activeLineup.includes(event.outPlayerId)) {
+  const outgoingPlayerIsActive =
+    event.role === "pitcher" && activePitcherId !== null
+      ? event.outPlayerId === activePitcherId
+      : activeLineup.includes(event.outPlayerId);
+  if (!outgoingPlayerIsActive) {
     violations.push(
       violation(
         event,
@@ -455,7 +487,7 @@ export function replay(
   events: readonly GameEvent[],
   config: GameConfig
 ): ReplayResult {
-  let snapshot = initialSnapshot(config);
+  const snapshot = initialSnapshot(config);
   const timeline: TimelineEntry[] = [];
   const violations = validateConfig(config);
   const seenEventIds = new Set<string>();
@@ -543,7 +575,12 @@ export function replay(
       const slot = snapshot.activeLineup[event.team].indexOf(
         event.outPlayerId
       );
-      snapshot.activeLineup[event.team][slot] = event.inPlayerId;
+      if (slot >= 0) {
+        snapshot.activeLineup[event.team][slot] = event.inPlayerId;
+      }
+      if (event.role === "pitcher") {
+        snapshot.activePitcherId[event.team] = event.inPlayerId;
+      }
       if (event.role === "pinchRunner") {
         for (const base of ["first", "second", "third"] as const) {
           if (snapshot.runners[base] === event.outPlayerId) {
@@ -585,6 +622,7 @@ export function replay(
       event.kind === "atBat" &&
       halfEndingOut?.from === "batter" &&
       halfEndingOut.playerId === event.batterId;
+    const forcePlayMakesHalfEndingOut = halfEndingOut?.outType === "force";
 
     for (const movement of event.movements) {
       if (movement.to === "out") {
@@ -597,7 +635,7 @@ export function replay(
         nextRunners[movement.to] = movement.playerId;
       }
     }
-    if (batterMakesHalfEndingOut) {
+    if (batterMakesHalfEndingOut || forcePlayMakesHalfEndingOut) {
       scoringMovements.length = 0;
     }
 

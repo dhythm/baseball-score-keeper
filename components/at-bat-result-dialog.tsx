@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -29,8 +30,11 @@ import {
   mapAtBatSelectionResult,
 } from "@/lib/app-state/event-factory";
 import { formatAtBatResult } from "@/lib/domain/notation";
+import { formatViolationMessage } from "@/lib/app-state/feedback";
 import { AtBatResultFlow } from "@/components/at-bat-result-flow";
 import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
+import { X } from "lucide-react";
+import { toast } from "sonner";
 
 export type AtBatResultDialogProps = {
   game: AppGame;
@@ -51,7 +55,7 @@ export function AtBatResultDialog({
   eventId,
   onNewResult,
 }: AtBatResultDialogProps) {
-  const { dispatch } = useGame();
+  const { dispatch, updateEvent } = useGame();
   const [resetToken, setResetToken] = useState(0);
   const [showDelete, setShowDelete] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<{
@@ -100,17 +104,25 @@ export function AtBatResultDialog({
 
   const handleEditMovements = (movements: RunnerMovement[]) => {
     if (!eventId || !atBat || !pendingEdit) return;
-    dispatch({
-      type: "UPDATE_EVENT",
+    const result = updateEvent(
       eventId,
-      event: createAtBatEvent({
+      createAtBatEvent({
         id: eventId,
         batterId: atBat.batterId,
         result: pendingEdit.result,
         detail: pendingEdit.detail,
         movements,
-      }),
-    });
+      })
+    );
+    if (!result.accepted) {
+      toast.error(
+        result.violations[0]
+          ? formatViolationMessage(result.violations[0])
+          : "変更を保存できませんでした。"
+      );
+      return;
+    }
+    toast.success("打席結果の変更を保存しました");
     setPendingEdit(null);
   };
 
@@ -141,39 +153,47 @@ export function AtBatResultDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          showCloseButton
-          className="max-h-[min(90vh,40rem)] overflow-y-auto sm:max-w-lg"
+          showCloseButton={false}
+          className="bottom-0 left-0 top-auto flex max-h-[92dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-b-none rounded-t-[1.75rem] border-x border-t bg-card p-0 shadow-[0_-20px_60px_rgba(0,0,0,0.18)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:grid sm:max-h-[min(90dvh,40rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:grid-rows-[auto_minmax(0,1fr)] sm:gap-4 sm:rounded-lg sm:border sm:p-6"
         >
-          <DialogHeader>
+          <DialogHeader className="relative shrink-0 border-b border-border bg-card px-5 py-4 pr-16 text-left sm:border-0 sm:bg-transparent sm:p-0 sm:pr-10">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
+            <DialogClose
+              className="absolute right-2.5 top-2.5 flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:-right-2 sm:-top-2"
+              aria-label="打席結果入力を閉じる"
+            >
+              <X className="size-5" />
+            </DialogClose>
           </DialogHeader>
 
-          {mode === "edit" && atBat && atBat.result && (
-            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
-              現在: {formatAtBatResult(atBat.result, atBat.battedBall)}
-              {atBat.note ? (
-                <span className="text-muted-foreground">（{atBat.note}）</span>
-              ) : null}
-            </div>
-          )}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-0 sm:py-0 sm:pb-0">
+            {mode === "edit" && atBat && atBat.result && (
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
+                現在: {formatAtBatResult(atBat.result, atBat.battedBall)}
+                {atBat.note ? (
+                  <span className="text-muted-foreground">（{atBat.note}）</span>
+                ) : null}
+              </div>
+            )}
 
-          <AtBatResultFlow
-            resetToken={resetToken}
-            outs={outsForFlow}
-            onSubmit={handleFlowSubmit}
-          />
+            <AtBatResultFlow
+              resetToken={resetToken}
+              outs={outsForFlow}
+              onSubmit={handleFlowSubmit}
+            />
 
-          {mode === "edit" && eventId && atBat && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
-              onClick={() => setShowDelete(true)}
-            >
-              この打席を削除
-            </Button>
-          )}
+            {mode === "edit" && eventId && atBat && (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-full border-destructive/50 text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDelete(true)}
+              >
+                この打席を削除
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -205,10 +225,12 @@ export function AtBatResultDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">
+              キャンセル
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               削除
             </AlertDialogAction>

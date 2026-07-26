@@ -1,10 +1,16 @@
 import type {
   AtBatEvent,
   AtBatResult as DomainAtBatResult,
+  BaseRunningEvent,
+  BaseRunningType,
   BattedBall,
   FieldingPosition,
+  GameControlEvent,
   RunnerMovement,
   Runners,
+  SubstitutionEvent,
+  SubstitutionRole,
+  TeamSide,
 } from "../domain/types";
 import type { AtBatResult as LegacyAtBatResult } from "../types";
 import { getDefaultMovements } from "../domain/rules";
@@ -56,6 +62,7 @@ export function getDefaultMovementsForSelection(
         from: "first",
         to: "out",
         isRBI: false,
+        outType: "force",
       });
     }
     return movements;
@@ -121,5 +128,63 @@ export function createAtBatEvent({
     ...(note ? { note } : {}),
     ...(battedBall ? { battedBall } : {}),
     movements,
+  };
+}
+
+export function createBaseRunningEvent({
+  id,
+  type,
+  movements,
+  rbiCreditBatterId,
+}: {
+  id: string;
+  type: BaseRunningType;
+  movements: RunnerMovement[];
+  rbiCreditBatterId?: string;
+}): BaseRunningEvent {
+  return {
+    id,
+    kind: "baseRunning",
+    type,
+    movements,
+    ...(rbiCreditBatterId ? { rbiCreditBatterId } : {}),
+  };
+}
+
+export function createSubstitutionEvent({
+  id,
+  team,
+  inPlayerId,
+  outPlayerId,
+  role,
+}: {
+  id: string;
+  team: TeamSide;
+  inPlayerId: string;
+  outPlayerId: string;
+  role: SubstitutionRole;
+}): SubstitutionEvent {
+  return {
+    id,
+    kind: "substitution",
+    team,
+    inPlayerId,
+    outPlayerId,
+    role,
+  };
+}
+
+export function createGameControlEvent({
+  id,
+  reason,
+}: {
+  id: string;
+  reason?: string;
+}): GameControlEvent {
+  return {
+    id,
+    kind: "gameControl",
+    action: "endGame",
+    ...(reason ? { reason } : {}),
   };
 }

@@ -6,7 +6,7 @@ import type {
   SubstitutionEvent,
   TimelineEntry,
 } from "./types";
-import { getStartingPitcherStats } from "./pitching";
+import { getPitcherStats, getStartingPitcherStats } from "./pitching";
 
 const snapshot: Snapshot = {
   inning: 1,
@@ -14,6 +14,7 @@ const snapshot: Snapshot = {
   outs: 0,
   runners: { first: null, second: null, third: null },
   activeLineup: { away: ["away-batter"], home: ["home-batter"] },
+  activePitcherId: { away: null, home: null },
   currentBatterIndex: { away: 0, home: 0 },
   score: { away: 0, home: 0 },
   gameStatus: "live",
@@ -98,5 +99,90 @@ describe("getStartingPitcherStats", () => {
       hitsAllowed: 1,
       walksAllowed: 0,
     });
+  });
+
+  it("derives separate lines for the starter and each reliever", () => {
+    const firstChange: SubstitutionEvent = {
+      id: "first-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever-1",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const secondChange: SubstitutionEvent = {
+      ...firstChange,
+      id: "second-change",
+      inPlayerId: "reliever-2",
+      outPlayerId: "reliever-1",
+    };
+    const changeEntry = (event: SubstitutionEvent): TimelineEntry => ({
+      ...entry(event.id, "away", "otherOut"),
+      event,
+      outsRecorded: 0,
+    });
+
+    expect(
+      getPitcherStats(
+        [
+          entry("starter-single", "away", "single"),
+          entry("starter-out", "away", "groundOut", 1, 1),
+          changeEntry(firstChange),
+          entry("reliever-walk", "away", "walk"),
+          entry("reliever-k", "away", "strikeoutLooking", 1),
+          changeEntry(secondChange),
+          entry("second-reliever-hr", "away", "homerun", 0, 1),
+        ],
+        "home",
+        "starter"
+      )
+    ).toEqual([
+      {
+        pitcherId: "starter",
+        role: "starter",
+        outs: 1,
+        inningsPitched: "0.1",
+        hitsAllowed: 1,
+        runsAllowed: 1,
+        walksAllowed: 0,
+        strikeouts: 0,
+      },
+      {
+        pitcherId: "reliever-1",
+        role: "reliever",
+        outs: 1,
+        inningsPitched: "0.1",
+        hitsAllowed: 0,
+        runsAllowed: 0,
+        walksAllowed: 1,
+        strikeouts: 1,
+      },
+      {
+        pitcherId: "reliever-2",
+        role: "reliever",
+        outs: 0,
+        inningsPitched: "0.0",
+        hitsAllowed: 1,
+        runsAllowed: 1,
+        walksAllowed: 0,
+        strikeouts: 0,
+      },
+    ]);
+  });
+
+  it("supports a starter without a batting-order player id", () => {
+    expect(
+      getPitcherStats(
+        [entry("starter-out", "away", "groundOut", 1)],
+        "home",
+        null
+      )
+    ).toEqual([
+      expect.objectContaining({
+        pitcherId: null,
+        role: "starter",
+        outs: 1,
+      }),
+    ]);
   });
 });

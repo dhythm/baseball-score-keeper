@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { NetworkStatus } from "@/components/network-status";
 
 export const metadata: Metadata = {
   title: "スコアブック - 野球スコアラー",
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className="font-sans antialiased">
         {children}
+        <NetworkStatus />
         <Toaster position="top-center" richColors closeButton />
         <ServiceWorkerRegistration />
         <Analytics />

@@ -205,16 +205,57 @@ type GameEvent =
 
 ## 付録 A: 現行コードの既知バグ一覧（Phase 1-2 で再現テストを書く対象）
 
-| # | 内容 | 場所 |
-|---|---|---|
-| a | ビジター勝利・延長決着で試合が自動終了しない（`getEffectiveTotalInnings` が現在回を含むため終了判定がデッドコード化） | game-utils.ts:64, 939-960 |
-| b | 野選・打撃妨害で一塁走者が盤面から消える（走者重複の検証なし） | game-utils.ts:338-345, 462 |
-| c | 過去イベントの編集・削除後、イベントに凍結された inning/half が更新されず表示が壊れる | game-reducer.ts:65-103 |
-| d | 3アウト同時ホームインがチーム得点には入らないのに個人得点・打点には入る（二重基準） | game-utils.ts:540 vs 593-609 |
-| e | 規定回超のイニングで `getInningScores` が NaN を伝播しうる | game-utils.ts:531-541 |
-| f | 編集時に手動指定の進塁が既定値で上書きされる | game-utils.ts:858-896 |
-| g | legacy `strikeout` が常に「空振三振」表示になる | types.ts:192 |
-| h | 「内野安」が `otherOut`（アウト扱い）として登録されている | at-bat-notation.ts:53-57 |
+状況列は 2026-07-26 の検証結果（付録 C 参照）。
+
+| # | 内容 | 場所（旧実装） | 状況 |
+|---|---|---|---|
+| a | ビジター勝利・延長決着で試合が自動終了しない（`getEffectiveTotalInnings` が現在回を含むため終了判定がデッドコード化） | game-utils.ts:64, 939-960 | ✅ 解消（replay.test.ts:383-462） |
+| b | 野選・打撃妨害で一塁走者が盤面から消える（走者重複の検証なし） | game-utils.ts:338-345, 462 | ✅ 解消（rules の既定 movements + replay の重複検証。野選×replay の統合テストはやや薄い） |
+| c | 過去イベントの編集・削除後、イベントに凍結された inning/half が更新されず表示が壊れる | game-reducer.ts:65-103 | ✅ 解消（導出値を保存しない構造に変更。replay.test.ts:284-305） |
+| d | 3アウト同時ホームインがチーム得点には入らないのに個人得点・打点には入る（二重基準） | game-utils.ts:540 vs 593-609 | ✅ 解消（stats.test.ts:141-191 で直接検証） |
+| e | 規定回超のイニングで `getInningScores` が NaN を伝播しうる | game-utils.ts:531-541 | ✅ 解消（stats.test.ts:90-101） |
+| f | 編集時に手動指定の進塁が既定値で上書きされる | game-utils.ts:858-896 | ⚠ 部分解消: 進塁先は保持されるが **isRBI は既定値で上書き**（付録 C-1） |
+| g | legacy `strikeout` が常に「空振三振」表示になる | types.ts:192 | ✅ 解消（「三振」表示。notation.test.ts:34-41） |
+| h | 「内野安」が `otherOut`（アウト扱い）として登録されている | at-bat-notation.ts:53-57 | ⚠ 回避のみ: 境界（event-factory / migration）で `single` に読み替え。原本の誤登録は残存 |
+
+## 付録 C: 実装検証の結果（2026-07-26）
+
+検証方法: `pnpm test`（11 ファイル 91 件 green）・`pnpm exec tsc --noEmit`・`pnpm build` を実行の上、全フェーズ項目をコード読解で照合。実機（ブラウザ）での通し確認は未実施。
+
+### C-1. 残存バグ（機能に影響。優先的に対応）
+
+1. **振り逃げの進塁が既定値に固定される**: `isAutoAdvanceAtBatResult`（game-utils.ts）が `uncaughtThirdStrike` を自動確定扱いにするため進塁シートが開かない。振り逃げ失敗（捕手→一塁アウト）や他走者の進塁を入力できない。
+2. **編集時に打点フラグが失われる**: `runner-advance-sheet.tsx:143-149` が `initialMovements` の `isRBI` を読まず `defaultRbiWhenScoring` で作り直すため、「打点に含めない」と手動指定した打席を再編集すると既定値に戻る（付録 A-f の未解消分）。
+3. **violations が UI に一切表示されない**: replay は不変条件違反を返し `AppGame.violations` まで運ばれているが、UI での参照が 0 件。違反イベントは `applied:false` で盤面から静かに消えるため、「記録しました」トーストが出るのに反映されない無言の失敗が起こりうる。
+4. **フォースアウトで3アウト目が成立するケースの得点計上に疑義**: replay の3アウト同時得点判定は「打者がアウトの場合」と movements の配列順に依存しており、走者の封殺で3アウト目になった場合、配列上それより前の本塁到達が得点として残る可能性（実ルールでは無得点）。テスト未カバー。
+
+### C-2. ドメイン層の設計残課題
+
+- アウト超過の violation コードがなく、`replay.ts` は 3 アウトを超えるアウトを無言でクリップする（計画 3 章「不変条件を replay 内で検証」の未達分）。
+- `END_GAME` アクションが dispatch 箇所 0 件のテスト専用パスとして残存（実際の終了は gameControl イベント経由）。
+- movements の「配列順が得点/アウトの前後関係を表す」という暗黙の契約がコード上どこにも明示されていない。
+
+### C-3. テスト未カバー領域（実装はあるがテストがない）
+
+- `stats.ts` の犠打/犠飛/振り逃げの集計（打数除外・犠飛の別カウント・三振カウント）。
+- `replay.ts` の走塁イベント経路（複数走者・走塁での得点・`rbiCreditBatterId` の打点計上）。
+- 「編集フローで進塁シートが開き手動進塁が保持される」ことの UI 回帰テスト。
+
+### C-4. 旧コードの残存（クリーンアップ未了）
+
+- `lib/game-reducer.ts`: 参照 0 件の完全な死にコード。
+- `lib/game-utils.ts`（961 行）: 生存は 5 関数のみ（`generateId`, `isAutoAdvanceAtBatResult`, `getSelectableFieldingPositions`, `isTeamRosterValid`, `syncStartingPitcher`）。残り約 800 行は dummy-game と特性テスト専用。
+- `lib/at-bat-notation.ts`: 入力 UI の detail 文字列生成に現役使用。「内野安 = otherOut」誤登録も残存し、境界の文字列マッチ（`detail === "内野安"` 等）が壊れると付録 A-h が再発する構造。
+- `theme-provider.tsx` / `hooks/use-mobile.ts` / `hooks/use-toast.ts` / `components/ui/toast*.tsx`: 参照 0 件。
+- `game-setup.tsx` は legacy `Team` 型（lib/types）で構築したデータを `GameConfig` に流し込んでおり、設定画面のみ旧型のまま。
+
+### C-5. 導線・UX の残課題
+
+- 走塁・打席の編集導線は試合中画面（打順表セル）のみ。結果画面からは「試合を続ける」で戻る必要がある。
+- 試合履歴への導線はセットアップ画面のみ。`GameHistory` はマウント時にしか一覧を更新しない。
+- 走塁・交代・試合終了イベントの組み立てが各コンポーネントに直書き（ファクトリ経由は打席のみ）。
+- 打席入力後の自動確定（進塁シートスキップ）対象が旧 `game-utils.ts` の判定関数に依存。
+- 実機（スマホ幅ブラウザ）での通し確認が未実施。
 
 ## 付録 B: 現状の構成（参考）
 

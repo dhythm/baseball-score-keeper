@@ -175,6 +175,95 @@ describe("createAtBatEvent", () => {
       },
     ]);
   });
+
+  it("uses the selected direction for out, double, and error defaults", () => {
+    expect(
+      getDefaultMovementsForSelection(
+        "groundOut",
+        "遊ゴロ",
+        { first: "r1", second: null, third: null },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "r1",
+        from: "first",
+        to: "out",
+        isRBI: false,
+        outType: "force",
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+
+    expect(
+      getDefaultMovementsForSelection(
+        "flyOut",
+        "中飛",
+        { first: null, second: "r2", third: null },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "r2",
+        from: "second",
+        to: "third",
+        isRBI: false,
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ]);
+
+    expect(
+      getDefaultMovementsForSelection(
+        "double",
+        "左2",
+        { first: "r1", second: null, third: null },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "r1",
+        from: "first",
+        to: "home",
+        isRBI: true,
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "second",
+        isRBI: false,
+      },
+    ]);
+
+    expect(
+      getDefaultMovementsForSelection(
+        "error",
+        "遊失",
+        { first: null, second: null, third: "r3" },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+  });
 });
 
 describe("management event factories", () => {

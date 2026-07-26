@@ -25,6 +25,12 @@ interface DefaultMovementContext {
   isInfieldHit?: boolean;
 }
 
+function isOutfieldPosition(
+  position: BattedBall["position"] | undefined
+): boolean {
+  return position === "left" || position === "center" || position === "right";
+}
+
 function move(
   playerId: string,
   from: RunnerMovement["from"],
@@ -103,6 +109,7 @@ export function getDefaultMovements(
     }
 
     case "double": {
+      const isOutfieldHit = isOutfieldPosition(context.battedBall?.position);
       const movements: RunnerMovement[] = [];
       if (runners.third) {
         movements.push(move(runners.third, "third", "home", true));
@@ -111,17 +118,21 @@ export function getDefaultMovements(
         movements.push(move(runners.second, "second", "home", true));
       }
       if (runners.first) {
-        movements.push(move(runners.first, "first", "third"));
+        movements.push(
+          move(
+            runners.first,
+            "first",
+            isOutfieldHit ? "home" : "third",
+            isOutfieldHit
+          )
+        );
       }
       movements.push(move(batterId, "batter", "second"));
       return movements;
     }
 
     case "single": {
-      const isOutfieldHit =
-        context.battedBall?.position === "left" ||
-        context.battedBall?.position === "center" ||
-        context.battedBall?.position === "right";
+      const isOutfieldHit = isOutfieldPosition(context.battedBall?.position);
       const isInfieldHit =
         context.isInfieldHit ||
         (context.battedBall?.type === "ground" && !isOutfieldHit);
@@ -152,6 +163,13 @@ export function getDefaultMovements(
     }
 
     case "error": {
+      const isInfieldError =
+        context.battedBall?.type === "ground" &&
+        !isOutfieldPosition(context.battedBall.position);
+      if (isInfieldError) {
+        return getForcedAdvanceMovements(runners, batterId, false);
+      }
+
       const movements: RunnerMovement[] = [];
       if (runners.third) {
         movements.push(move(runners.third, "third", "home"));
@@ -221,8 +239,46 @@ export function getDefaultMovements(
       return movements;
     }
 
-    case "groundOut":
-    case "flyOut":
+    case "groundOut": {
+      if (context.battedBall?.type !== "ground") {
+        return [move(batterId, "batter", "out")];
+      }
+      const movements: RunnerMovement[] = [];
+      if (runners.third) {
+        movements.push(move(runners.third, "third", "home", true));
+      }
+      if (runners.second) {
+        movements.push(move(runners.second, "second", "third"));
+      }
+      if (runners.first) {
+        movements.push({
+          ...move(runners.first, "first", "out"),
+          outType: "force",
+        });
+        movements.push(move(batterId, "batter", "first"));
+      } else {
+        movements.push(move(batterId, "batter", "out"));
+      }
+      return movements;
+    }
+
+    case "flyOut": {
+      const movements: RunnerMovement[] = [];
+      if (
+        context.battedBall?.type === "fly" &&
+        isOutfieldPosition(context.battedBall.position)
+      ) {
+        if (runners.third) {
+          movements.push(move(runners.third, "third", "home", true));
+        }
+        if (runners.second) {
+          movements.push(move(runners.second, "second", "third"));
+        }
+      }
+      movements.push(move(batterId, "batter", "out"));
+      return movements;
+    }
+
     case "strikeout":
     case "strikeoutSwinging":
     case "strikeoutLooking":

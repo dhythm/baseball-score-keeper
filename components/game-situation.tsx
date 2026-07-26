@@ -10,6 +10,7 @@ interface GameSituationProps {
   game: AppGame;
   onRecordResult?: () => void;
   onOpenBaseRunning?: () => void;
+  onRunnerSelect?: (runnerId: string) => void;
 }
 
 function OutIndicator({ outs }: { outs: number }) {
@@ -33,6 +34,7 @@ export function GameSituation({
   game,
   onRecordResult,
   onOpenBaseRunning,
+  onRunnerSelect,
 }: GameSituationProps) {
   const { inning, half, outs, runners } = game.currentState;
   const currentBatter = getCurrentBatter(game);
@@ -63,7 +65,11 @@ export function GameSituation({
 
         <div className="grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-4 px-4 py-4 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:px-5">
           <div className="min-w-0">
-            <DiamondField runners={runners} game={game} />
+            <DiamondField
+              runners={runners}
+              game={game}
+              onRunnerSelect={onRunnerSelect}
+            />
           </div>
 
           <div className="min-w-0">

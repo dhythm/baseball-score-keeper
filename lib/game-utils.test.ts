@@ -33,6 +33,30 @@ describe("isAutoAdvanceAtBatResult", () => {
     ).toBe(true);
   });
 
+  it.each([
+    ["single", "first"],
+    ["error", "first"],
+    ["double", "second"],
+  ] as const)(
+    "skips confirmation for an empty-base %s with only the batter moving",
+    (result, destination) => {
+      expect(
+        canApplyDefaultMovementsWithoutConfirmation(
+          result,
+          { first: null, second: null, third: null },
+          [
+            {
+              playerId: "batter",
+              from: "batter",
+              to: destination,
+              isRBI: false,
+            },
+          ]
+        )
+      ).toBe(true);
+    }
+  );
+
   it("keeps confirmation for occupied bases and uncaught third strikes", () => {
     const batterMovement = [
       {

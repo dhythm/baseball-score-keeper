@@ -1,0 +1,7 @@
+.next
+node_modules
+out
+build
+pnpm-lock.yaml
+public/icon-192.png
+public/icon-512.png

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "スコアブック",
-    short_name: "スコアブック",
+    name: "スコアブッくん",
+    short_name: "スコアブッくん",
     description: "草野球の試合をスマホで記録できるスコアリングアプリ",
     id: "/",
     start_url: "/",

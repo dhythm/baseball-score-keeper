@@ -7,7 +7,7 @@ import { NetworkStatus } from "@/components/network-status";
 import { AppProviders } from "@/components/app-providers";
 
 export const metadata: Metadata = {
-  title: "スコアブック - 野球スコアラー",
+  title: "スコアブッくん - 野球スコアラー",
   description:
     "草野球対応のリアルタイム野球スコアリングアプリ。試合中にベンチからスマホでスコアをつけられます。",
   icons: {

@@ -183,7 +183,7 @@ export function LiveScoring() {
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm sm:px-5 sm:pb-3">
         <h1 className="flex items-center gap-2 text-base font-extrabold tracking-tight sm:text-lg">
           <span className="text-lg opacity-90 sm:text-xl">&#9918;</span>
-          スコアブック
+          スコアブッくん
         </h1>
         <div className="flex shrink-0 items-center gap-0.5">
           <FeedbackDialog />

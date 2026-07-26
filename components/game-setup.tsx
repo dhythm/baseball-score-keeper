@@ -539,7 +539,7 @@ export function GameSetup() {
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-primary-foreground/10 bg-primary px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
-          スコアブック
+          スコアブッくん
         </h1>
         <FeedbackDialog />
       </header>

@@ -15,6 +15,7 @@ import { DiamondField } from "./diamond-field";
 import { GameNoteDialog } from "./game-note-dialog";
 import { LiveScoring } from "./live-scoring";
 import { Scoreboard } from "./scoreboard";
+import { UiPreferencesProvider } from "./ui-preferences-provider";
 
 const config: GameConfig = {
   regulationInnings: 7,
@@ -117,6 +118,53 @@ describe("scoring UI flows", () => {
     await user.click(screen.getByRole("button", { name: "三振" }));
 
     expect(onSubmit).toHaveBeenCalledWith("strikeout");
+  });
+
+  it("asks for fly depth only when a runner can tag up", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <AtBatResultFlow
+        resetToken={0}
+        outs={0}
+        hasTagUpCandidate
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "アウト" }));
+    await user.click(screen.getByRole("button", { name: "フライ" }));
+    await user.click(screen.getByRole("button", { name: "中" }));
+    expect(screen.getByRole("button", { name: "浅い" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "深い" }));
+
+    expect(onSubmit).toHaveBeenCalledWith("flyOut", "中飛", {
+      position: "center",
+      type: "fly",
+      depth: "deep",
+    });
+  });
+
+  it("disables double-play input without a runner on first", async () => {
+    const user = userEvent.setup();
+    render(
+      <AtBatResultFlow
+        resetToken={0}
+        outs={0}
+        canRecordDoublePlay={false}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "アウト" }));
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: /併殺打.*一塁走者なし/,
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
   });
 
   it("preselects the only runner and the conventional next base", async () => {
@@ -279,9 +327,11 @@ describe("scoring UI flows", () => {
   it("records a selected result through live scoring and shows it in the batting order", async () => {
     const user = userEvent.setup();
     render(
-      <GameProvider>
-        <LiveGameHarness />
-      </GameProvider>
+      <UiPreferencesProvider>
+        <GameProvider>
+          <LiveGameHarness />
+        </GameProvider>
+      </UiPreferencesProvider>
     );
 
     await user.click(await screen.findByRole("button", { name: "結果入力" }));

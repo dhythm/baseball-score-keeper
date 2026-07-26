@@ -14,6 +14,7 @@ import {
 import type {
   AtBatResult,
   Base,
+  BattedBall,
   RunnerMovement,
   Snapshot,
 } from "@/lib/domain/types";
@@ -54,6 +55,7 @@ interface RunnerAdvanceSheetProps {
   game: AppGame;
   result: AtBatResult;
   detail?: string;
+  battedBall?: BattedBall;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (
@@ -81,6 +83,7 @@ export function RunnerAdvanceSheet({
   game,
   result,
   detail,
+  battedBall,
   open,
   onOpenChange,
   onConfirm,
@@ -103,9 +106,18 @@ export function RunnerAdvanceSheet({
       detail,
       runners,
       currentBatter.id,
-      outs
+      outs,
+      battedBall
     );
-  }, [result, detail, runners, currentBatter, outs, initialMovementsOverride]);
+  }, [
+    result,
+    detail,
+    runners,
+    currentBatter,
+    outs,
+    battedBall,
+    initialMovementsOverride,
+  ]);
 
   const [runnerStates, setRunnerStates] = useState<RunnerState[]>([]);
   const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>(

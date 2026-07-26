@@ -1,0 +1,84 @@
+export const UI_PREFERENCES_STORAGE_KEY =
+  "baseball-scorer-ui-preferences" as const;
+const UI_PREFERENCES_VERSION = 1 as const;
+
+export interface UiPreferences {
+  outdoorMode: boolean;
+  vibrationEnabled: boolean;
+}
+
+export const DEFAULT_UI_PREFERENCES: Readonly<UiPreferences> = {
+  outdoorMode: false,
+  vibrationEnabled: false,
+};
+
+interface UiPreferencesEnvelope extends UiPreferences {
+  version: typeof UI_PREFERENCES_VERSION;
+}
+
+export interface UiPreferencesStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+interface VibrationNavigator {
+  vibrate?: (pattern: number) => boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function loadUiPreferences(
+  storage: UiPreferencesStorage
+): UiPreferences {
+  try {
+    const serialized = storage.getItem(UI_PREFERENCES_STORAGE_KEY);
+    if (serialized === null) return { ...DEFAULT_UI_PREFERENCES };
+    const parsed: unknown = JSON.parse(serialized);
+    if (
+      !isRecord(parsed) ||
+      parsed.version !== UI_PREFERENCES_VERSION ||
+      typeof parsed.outdoorMode !== "boolean" ||
+      typeof parsed.vibrationEnabled !== "boolean"
+    ) {
+      return { ...DEFAULT_UI_PREFERENCES };
+    }
+    return {
+      outdoorMode: parsed.outdoorMode,
+      vibrationEnabled: parsed.vibrationEnabled,
+    };
+  } catch {
+    return { ...DEFAULT_UI_PREFERENCES };
+  }
+}
+
+export function saveUiPreferences(
+  storage: UiPreferencesStorage,
+  preferences: UiPreferences
+): boolean {
+  const envelope: UiPreferencesEnvelope = {
+    version: UI_PREFERENCES_VERSION,
+    ...preferences,
+  };
+  try {
+    storage.setItem(UI_PREFERENCES_STORAGE_KEY, JSON.stringify(envelope));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function vibrateOnConfirmation(
+  enabled: boolean,
+  vibrationNavigator: VibrationNavigator
+): boolean {
+  if (!enabled || typeof vibrationNavigator.vibrate !== "function") {
+    return false;
+  }
+  try {
+    return vibrationNavigator.vibrate(40);
+  } catch {
+    return false;
+  }
+}

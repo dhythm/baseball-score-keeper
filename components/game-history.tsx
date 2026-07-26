@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, History, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, History, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
   createBrowserGameRepository,
   type PersistedGameV2,
 } from "@/lib/storage/local-storage";
+import { parseHistoryArchive } from "@/lib/export/history-archive";
+import { toast } from "sonner";
 
 export function GameHistory() {
   const { game, resetGame } = useGame();
@@ -37,8 +39,6 @@ export function GameHistory() {
     refresh();
   }, []);
 
-  if (games.length === 0) return null;
-
   const deleteGame = games.find((game) => game.id === deleteGameId);
 
   const handleDelete = () => {
@@ -51,6 +51,17 @@ export function GameHistory() {
     }
     setDeleteGameId(null);
     refresh();
+  };
+
+  const handleArchiveImport = async (file: File) => {
+    try {
+      const importedGames = parseHistoryArchive(await file.text());
+      createBrowserGameRepository().importGames(importedGames);
+      refresh();
+      toast.success(`${importedGames.length}試合を履歴へ取り込みました`);
+    } catch {
+      toast.error("履歴JSONを取り込めませんでした");
+    }
   };
 
   return (
@@ -86,7 +97,26 @@ export function GameHistory() {
             id="saved-game-list"
             className="space-y-2 border-t border-border px-4 py-4"
           >
-            {games.slice(0, 10).map((storedGame) => {
+            <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-secondary">
+              <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+              退避JSONを取り込む
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void handleArchiveImport(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+            {games.length === 0 && (
+              <p className="py-2 text-center text-sm text-muted-foreground">
+                保存された試合はありません
+              </p>
+            )}
+            {games.map((storedGame) => {
               const snapshot = replay(
                 storedGame.events,
                 storedGame.config

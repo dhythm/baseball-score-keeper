@@ -46,7 +46,9 @@ describe("GameErrorBoundary", () => {
       </GameErrorBoundary>
     );
 
-    expect(screen.getByText("記録データは保存されています")).toBeTruthy();
+    expect(
+      screen.getByText("最後に保存できた時点までの記録を退避できます")
+    ).toBeTruthy();
     expect(
       (
         screen.getByRole("button", {

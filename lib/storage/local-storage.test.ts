@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { vi } from "vitest";
+import type { GameEvent } from "../domain/types";
 
 import type {
   LegacyGame,
@@ -34,6 +36,23 @@ function persistedGame(
     },
     events: [],
     ...overrides,
+  };
+}
+
+function outEvent(id: string): GameEvent {
+  return {
+    id,
+    kind: "atBat",
+    batterId: "away-1",
+    result: "groundOut",
+    movements: [
+      {
+        playerId: "away-1",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ],
   };
 }
 
@@ -89,6 +108,22 @@ function legacyGame(events: LegacyEvent[]): LegacyGame {
 }
 
 describe("v2 storage envelope", () => {
+  it("round-trips bounded edit history and deleted events", () => {
+    const deletedEvent = outEvent("deleted");
+    const game = persistedGame({
+      deletedEvents: [{ event: deletedEvent, index: 0 }],
+      undoHistory: [
+        {
+          events: [deletedEvent],
+          deletedEvents: [],
+          status: "live",
+        },
+      ],
+      redoHistory: [],
+    });
+
+    expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
+  });
   it("serializes schemaVersion 2 around input-only game data", () => {
     const game: PersistedGameV2 = {
       id: "game",
@@ -161,6 +196,26 @@ describe("v2 storage envelope", () => {
     expect(() => parseStoredGame(JSON.stringify(envelope))).toThrow(
       "malformed schema version 2 game"
     );
+  });
+});
+
+describe("game repository writes", () => {
+  it("writes the active game before updating history", () => {
+    const values = new Map<string, string>();
+    const writes: string[] = [];
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => {
+        writes.push(key);
+        values.set(key, value);
+      }),
+      removeItem: (key: string) => values.delete(key),
+    };
+    createGameRepository(storage).save(persistedGame());
+    expect(writes).toEqual([
+      DEFAULT_GAME_STORAGE_KEY,
+      DEFAULT_GAME_HISTORY_STORAGE_KEY,
+    ]);
   });
 });
 
@@ -424,6 +479,18 @@ describe("localStorage adapter", () => {
       "malformed batted ball",
       { battedBall: { position: "dugout", type: "ground" } },
     ],
+    [
+      "malformed fly depth",
+      {
+        battedBall: {
+          position: "center",
+          type: "fly",
+          depth: "medium",
+        },
+      },
+    ],
+    ["malformed play order", { movements: [{ playOrder: 0 }] }],
+    ["malformed fielding sequence", { fieldingSequence: ["dugout"] }],
   ])("rejects %s in a v2 event", (_label, eventPatch) => {
     const game = persistedGame({
       config: {
@@ -537,6 +604,20 @@ describe("multiple game repository", () => {
     ]);
   });
 
+  it("imports archived games without replacing the active game", () => {
+    const { storage } = memoryStorage();
+    const repository = createGameRepository(storage);
+    const active = persistedGame({ id: "active", status: "live" });
+    repository.save(active);
+
+    repository.importGames([
+      persistedGame({ id: "archived", status: "finished" }),
+    ]);
+
+    expect(repository.loadActive()?.id).toBe("active");
+    expect(repository.list().map((game) => game.id)).toContain("archived");
+  });
+
   it("deletes a game and clears the active key only when it points to that game", () => {
     const { values, storage } = memoryStorage();
     const repository = createGameRepository(storage);
@@ -604,7 +685,7 @@ describe("multiple game repository", () => {
     expect(repository.find(game.id)).toEqual(game);
   });
 
-  it("retains only the latest ten games in localStorage", () => {
+  it("retains all games until the capacity manager explicitly archives them", () => {
     const { values, storage } = memoryStorage();
     const repository = createGameRepository(storage);
 
@@ -618,11 +699,11 @@ describe("multiple game repository", () => {
     }
 
     expect(repository.list().map((game) => game.id)).toEqual(
-      Array.from({ length: 10 }, (_, index) => `game-${12 - index}`)
+      Array.from({ length: 12 }, (_, index) => `game-${12 - index}`)
     );
     const storedHistory = JSON.parse(
       values.get(DEFAULT_GAME_HISTORY_STORAGE_KEY) ?? "{}"
     );
-    expect(storedHistory.games).toHaveLength(10);
+    expect(storedHistory.games).toHaveLength(12);
   });
 });

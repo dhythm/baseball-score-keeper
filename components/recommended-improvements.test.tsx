@@ -130,7 +130,7 @@ describe("recommended improvement UI", () => {
       <ScorebookAtBatLine entry={game.timeline[1]} />
     );
 
-    expect(html).toContain("二併");
+    expect(html).toContain("4-6-3 併");
     expect(html).not.toContain("二ゴロ");
   });
 });

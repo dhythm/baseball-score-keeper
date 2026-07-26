@@ -107,7 +107,13 @@ describe("getDefaultMovements", () => {
         { first: "r1", second: "r2", third: "r3" },
         "batter",
         0,
-        { battedBall: { position: "right", type: "fly" } }
+        {
+          battedBall: {
+            position: "right",
+            type: "fly",
+            depth: "deep",
+          },
+        }
       )
     ).toEqual([
       movement("r3", "third", "home", true),

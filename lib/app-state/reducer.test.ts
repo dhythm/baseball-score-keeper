@@ -58,6 +58,101 @@ function reduce(actions: GameAction[]) {
 }
 
 describe("app-state gameReducer", () => {
+  it("supports multiple undo and redo operations", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame(),
+    });
+    const first = gameReducer(loaded, {
+      type: "ADD_EVENT",
+      event: out("first", "away-1"),
+    });
+    const second = gameReducer(first, {
+      type: "ADD_EVENT",
+      event: out("second", "away-2"),
+    });
+    const undoSecond = gameReducer(second, { type: "UNDO_LAST_EVENT" });
+    const undoFirst = gameReducer(undoSecond, { type: "UNDO_LAST_EVENT" });
+    const redoFirst = gameReducer(undoFirst, { type: "REDO_LAST_EVENT" });
+    const redoSecond = gameReducer(redoFirst, { type: "REDO_LAST_EVENT" });
+
+    expect(undoFirst?.events).toEqual([]);
+    expect(redoFirst?.events.map(({ id }) => id)).toEqual(["first"]);
+    expect(redoSecond?.events.map(({ id }) => id)).toEqual(["first", "second"]);
+  });
+
+  it("keeps at most twenty undo revisions", () => {
+    let state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame(),
+    });
+    for (let index = 0; index < 25; index += 1) {
+      state = gameReducer(state, {
+        type: "ADD_EVENT",
+        event: {
+          id: `note-${index}`,
+          kind: "note",
+          text: `note ${index}`,
+        },
+      });
+    }
+    expect(state?.undoHistory).toHaveLength(20);
+  });
+
+  it("moves a deleted event to trash and restores it at its original position", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1"), out("second", "away-2")]),
+    });
+    const deleted = gameReducer(loaded, {
+      type: "DELETE_EVENT",
+      eventId: "first",
+    });
+    const restored = gameReducer(deleted, {
+      type: "RESTORE_DELETED_EVENT",
+      eventId: "first",
+    });
+
+    expect(deleted?.deletedEvents).toMatchObject([
+      { event: { id: "first" }, index: 0 },
+    ]);
+    expect(restored?.events.map(({ id }) => id)).toEqual(["first", "second"]);
+    expect(restored?.deletedEvents).toEqual([]);
+  });
+
+  it("returns to the beginning of the current half inning as one undoable operation", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([
+        out("away-1", "away-1"),
+        out("away-2", "away-2"),
+        out("away-3", "away-1"),
+        out("home-1", "home-1"),
+      ]),
+    });
+    const restored = gameReducer(loaded, {
+      type: "RESTORE_HALF_INNING_START",
+    });
+    const undone = gameReducer(restored, { type: "UNDO_LAST_EVENT" });
+
+    expect(restored?.events.map(({ id }) => id)).toEqual([
+      "away-1",
+      "away-2",
+      "away-3",
+    ]);
+    expect(restored?.currentState).toMatchObject({
+      inning: 1,
+      half: "bottom",
+      outs: 0,
+    });
+    expect(undone?.events.map(({ id }) => id)).toEqual([
+      "away-1",
+      "away-2",
+      "away-3",
+      "home-1",
+    ]);
+  });
+
   it("starts a game and derives an empty replay view", () => {
     const state = gameReducer(null, {
       type: "START_GAME",
@@ -128,8 +223,8 @@ describe("app-state gameReducer", () => {
 
     expect(deleted?.events.map(({ id }) => id)).toEqual(["second"]);
     expect(deleted?.currentState.outs).toBe(1);
-    expect(undone?.events).toEqual([]);
-    expect(undone?.currentState.outs).toBe(0);
+    expect(undone?.events.map(({ id }) => id)).toEqual(["first", "second"]);
+    expect(undone?.currentState.outs).toBe(2);
   });
 
   it("redoes the last undone event and restores its derived state", () => {
@@ -144,7 +239,7 @@ describe("app-state gameReducer", () => {
     expect(undone?.currentState.outs).toBe(1);
     expect(redone?.events.map(({ id }) => id)).toEqual(["first", "second"]);
     expect(redone?.currentState.outs).toBe(2);
-    expect(redone?.redoEvent).toBeNull();
+    expect(redone?.redoHistory).toEqual([]);
   });
 
   it("discards the redo event after recording a different event", () => {
@@ -160,7 +255,7 @@ describe("app-state gameReducer", () => {
     const redoAttempt = gameReducer(changed, { type: "REDO_LAST_EVENT" });
 
     expect(changed?.events.map(({ id }) => id)).toEqual(["replacement"]);
-    expect(changed?.redoEvent).toBeNull();
+    expect(changed?.redoHistory).toEqual([]);
     expect(redoAttempt).toBe(changed);
   });
 
@@ -229,6 +324,7 @@ describe("app-state gameReducer", () => {
     game.config.regulationInnings = 1;
 
     const state = gameReducer(null, { type: "LOAD_GAME", game });
+    const undone = gameReducer(state, { type: "UNDO_LAST_EVENT" });
 
     expect(state).toMatchObject({
       status: "finished",
@@ -237,6 +333,10 @@ describe("app-state gameReducer", () => {
         gameStatus: "finished",
         gameEndReason: "completedHalf",
       },
+    });
+    expect(undone).toMatchObject({
+      status: "live",
+      manualEnded: false,
     });
   });
 
@@ -494,6 +594,15 @@ describe("app-state selectors", () => {
     expect(toPersistedGame(state!)).toEqual({
       ...persistedGame([out("first", "away-1")]),
       status: "live",
+      deletedEvents: [],
+      undoHistory: [
+        {
+          events: [],
+          deletedEvents: [],
+          status: "live",
+        },
+      ],
+      redoHistory: [],
     });
     expect(toPersistedGame(state!)).not.toHaveProperty("timeline");
     expect(toPersistedGame(state!)).not.toHaveProperty("currentState");

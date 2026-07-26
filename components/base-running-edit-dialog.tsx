@@ -59,7 +59,7 @@ export function BaseRunningEditDialog({
 
   const handleDelete = () => {
     if (!eventId) return;
-    dispatch({ type: "DELETE_EVENT", eventId });
+    if (!dispatch({ type: "DELETE_EVENT", eventId })) return;
     setShowDelete(false);
     onOpenChange(false);
   };

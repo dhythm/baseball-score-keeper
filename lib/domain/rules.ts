@@ -9,13 +9,28 @@ import type {
 
 export function normalizeAtBatResultFromMovements(
   result: AtBatResult,
-  movements: readonly RunnerMovement[]
+  movements: readonly RunnerMovement[],
+  batterId?: string
 ): AtBatResult {
   if (
     result === "groundOut" &&
     movements.filter((movement) => movement.to === "out").length >= 2
   ) {
     return "doublePlay";
+  }
+  if (
+    result === "groundOut" &&
+    movements.some(
+      (movement) => movement.from !== "batter" && movement.to === "out"
+    ) &&
+    movements.some(
+      (movement) =>
+        movement.from === "batter" &&
+        (batterId === undefined || movement.playerId === batterId) &&
+        movement.to !== "out"
+    )
+  ) {
+    return "fieldersChoice";
   }
   return result;
 }
@@ -266,6 +281,7 @@ export function getDefaultMovements(
       const movements: RunnerMovement[] = [];
       if (
         context.battedBall?.type === "fly" &&
+        context.battedBall.depth === "deep" &&
         isOutfieldPosition(context.battedBall.position)
       ) {
         if (runners.third) {
@@ -282,9 +298,22 @@ export function getDefaultMovements(
     case "strikeout":
     case "strikeoutSwinging":
     case "strikeoutLooking":
-    case "doublePlay":
     case "otherOut":
       return [move(batterId, "batter", "out")];
+
+    case "doublePlay": {
+      if (currentOuts >= 2 || !runners.first) {
+        return [move(batterId, "batter", "out")];
+      }
+      return [
+        {
+          ...move(runners.first, "first", "out"),
+          outType: "force",
+          playOrder: 1,
+        },
+        { ...move(batterId, "batter", "out"), playOrder: 2 },
+      ];
+    }
   }
 }
 

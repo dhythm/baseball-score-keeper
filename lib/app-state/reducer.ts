@@ -1,12 +1,20 @@
 import { replay } from "../domain/replay";
 import type { GameEvent, Violation } from "../domain/types";
-import type { PersistedGameV2 } from "../storage/local-storage";
+import type {
+  DeletedEvent,
+  GameRevision,
+  PersistedGameV2,
+} from "../storage/local-storage";
 import type { AppGame, AppGameState, GameAction } from "./types";
 
 function deriveGame(
   game: PersistedGameV2,
   manualEnded?: boolean,
-  redoEvent: GameEvent | null = null
+  editState?: {
+    deletedEvents: DeletedEvent[];
+    undoHistory: GameRevision[];
+    redoHistory: GameRevision[];
+  }
 ): AppGame {
   const replayResult = replay(game.events, game.config);
   const inferredManualEnd =
@@ -18,12 +26,27 @@ function deriveGame(
       ? "finished"
       : "live";
 
+  const fallbackUndoHistory =
+    game.undoHistory ??
+    game.events
+      .slice(-MAX_EDIT_HISTORY)
+      .map((_, relativeIndex, recentEvents) => {
+        const removedCount = recentEvents.length - relativeIndex;
+        return {
+          events: game.events.slice(0, game.events.length - removedCount),
+          deletedEvents: game.deletedEvents ?? [],
+          status: isManuallyEnded ? ("finished" as const) : ("live" as const),
+        };
+      });
+
   return {
     id: game.id,
     date: game.date,
     config: game.config,
     events: game.events,
-    redoEvent,
+    deletedEvents: editState?.deletedEvents ?? game.deletedEvents ?? [],
+    undoHistory: editState?.undoHistory ?? fallbackUndoHistory,
+    redoHistory: editState?.redoHistory ?? game.redoHistory ?? [],
     manualEnded: isManuallyEnded,
     status,
     currentState: replayResult.snapshot,
@@ -32,6 +55,51 @@ function deriveGame(
     teams: game.config.teams,
     totalInnings: game.config.regulationInnings,
   };
+}
+
+const MAX_EDIT_HISTORY = 20;
+
+function currentRevision(state: AppGame): GameRevision {
+  return {
+    events: state.events,
+    deletedEvents: state.deletedEvents,
+    status: state.status,
+  };
+}
+
+function withMutation(
+  state: AppGame,
+  events: GameEvent[],
+  deletedEvents = state.deletedEvents,
+  status: "live" | "finished" = state.status
+): AppGame {
+  return deriveGame({ ...persistedInput(state, events), status }, undefined, {
+    deletedEvents,
+    undoHistory: [...state.undoHistory, currentRevision(state)].slice(
+      -MAX_EDIT_HISTORY
+    ),
+    redoHistory: [],
+  });
+}
+
+function fromRevision(
+  state: AppGame,
+  revision: GameRevision,
+  undoHistory: GameRevision[],
+  redoHistory: GameRevision[]
+): AppGame {
+  return deriveGame(
+    {
+      ...persistedInput(state, revision.events),
+      status: revision.status,
+    },
+    undefined,
+    {
+      deletedEvents: revision.deletedEvents,
+      undoHistory,
+      redoHistory,
+    }
+  );
 }
 
 function persistedInput(
@@ -154,46 +222,88 @@ export function gameReducer(
       if (!state) return null;
       {
         const result = evaluateEventAddition(state, action.event);
-        return result.accepted ? result.nextState : state;
+        return result.accepted
+          ? withMutation(state, result.nextState.events)
+          : state;
       }
 
     case "UPDATE_EVENT": {
       if (!state) return null;
       const result = evaluateEventUpdate(state, action.eventId, action.event);
-      return result?.accepted ? result.nextState : state;
+      return result?.accepted
+        ? withMutation(state, result.nextState.events)
+        : state;
     }
 
     case "DELETE_EVENT": {
       if (!state) return null;
       const result = evaluateEventDeletion(state, action.eventId);
-      return result?.nextState ?? state;
+      if (!result) return state;
+      const index = state.events.findIndex(
+        (event) => event.id === action.eventId
+      );
+      const event = state.events[index];
+      return withMutation(state, result.nextState.events, [
+        ...state.deletedEvents.filter(
+          (deleted) => deleted.event.id !== action.eventId
+        ),
+        { event, index },
+      ]);
+    }
+
+    case "RESTORE_DELETED_EVENT": {
+      if (!state) return null;
+      const deleted = state.deletedEvents.find(
+        (item) => item.event.id === action.eventId
+      );
+      if (!deleted) return state;
+      const events = [...state.events];
+      events.splice(Math.min(deleted.index, events.length), 0, deleted.event);
+      return withMutation(
+        state,
+        events,
+        state.deletedEvents.filter((item) => item.event.id !== action.eventId)
+      );
+    }
+
+    case "RESTORE_HALF_INNING_START": {
+      if (!state) return null;
+      const index = state.timeline.findIndex(
+        (entry) =>
+          entry.inning === state.currentState.inning &&
+          entry.half === state.currentState.half
+      );
+      if (index < 0 || index >= state.events.length) return state;
+      return withMutation(state, state.events.slice(0, index));
     }
 
     case "UNDO_LAST_EVENT":
-      if (!state || state.events.length === 0) return state;
-      return deriveGame(
-        persistedInput(state, state.events.slice(0, -1)),
-        state.manualEnded,
-        state.events.at(-1) ?? null
+      if (!state || state.undoHistory.length === 0) return state;
+      return fromRevision(
+        state,
+        state.undoHistory.at(-1)!,
+        state.undoHistory.slice(0, -1),
+        [...state.redoHistory, currentRevision(state)].slice(-MAX_EDIT_HISTORY)
       );
 
     case "REDO_LAST_EVENT":
-      if (!state?.redoEvent) return state;
-      return deriveGame(
-        persistedInput(state, [...state.events, state.redoEvent]),
-        state.manualEnded
+      if (!state || state.redoHistory.length === 0) return state;
+      return fromRevision(
+        state,
+        state.redoHistory.at(-1)!,
+        [...state.undoHistory, currentRevision(state)].slice(-MAX_EDIT_HISTORY),
+        state.redoHistory.slice(0, -1)
       );
 
     case "RESUME_GAME":
       if (!state) return null;
-      return deriveGame(
-        persistedInput(
-          state,
-          state.events.at(-1)?.kind === "gameControl"
-            ? state.events.slice(0, -1)
-            : state.events
-        ),
-        false
+      return withMutation(
+        state,
+        state.events.at(-1)?.kind === "gameControl"
+          ? state.events.slice(0, -1)
+          : state.events,
+        state.deletedEvents,
+        "live"
       );
   }
 }

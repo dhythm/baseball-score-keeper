@@ -86,12 +86,37 @@ export function formatAtBatResult(
 }
 
 export function formatAtBatNotation(
-  event: Pick<AtBatEvent, "result" | "battedBall" | "movements">
+  event: Pick<
+    AtBatEvent,
+    "result" | "battedBall" | "fieldingSequence" | "movements"
+  >
 ): string {
-  return formatAtBatResult(
-    normalizeAtBatResultFromMovements(event.result, event.movements),
-    event.battedBall
+  const normalizedResult = normalizeAtBatResultFromMovements(
+    event.result,
+    event.movements
   );
+  if (
+    normalizedResult === "doublePlay" &&
+    event.fieldingSequence &&
+    event.fieldingSequence.length > 0
+  ) {
+    const positionNumber: Record<FieldingPosition, number> = {
+      pitcher: 1,
+      catcher: 2,
+      first: 3,
+      second: 4,
+      third: 5,
+      short: 6,
+      left: 7,
+      center: 8,
+      right: 9,
+      dh: 0,
+    };
+    return `${event.fieldingSequence
+      .map((position) => positionNumber[position])
+      .join("-")} 併`;
+  }
+  return formatAtBatResult(normalizedResult, event.battedBall);
 }
 
 const BASE_LABEL: Record<Base, string> = {

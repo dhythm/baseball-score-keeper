@@ -51,31 +51,36 @@ export function getDefaultMovementsForSelection(
   detail: string | undefined,
   runners: Runners,
   batterId: string,
-  currentOuts: number
+  currentOuts: number,
+  battedBallOverride?: BattedBall
 ): RunnerMovement[] {
   const note = detail?.trim() ?? "";
   const domainResult = mapAtBatSelectionResult(result, note);
-  if (result === "doublePlay") {
-    const movements: RunnerMovement[] = [
-      { playerId: batterId, from: "batter", to: "out", isRBI: false },
-    ];
-    if (currentOuts < 2 && runners.first) {
-      movements.push({
-        playerId: runners.first,
-        from: "first",
-        to: "out",
-        isRBI: false,
-        outType: "force",
-      });
-    }
-    return movements;
-  }
   return getDefaultMovements(domainResult, runners, batterId, currentOuts, {
-    battedBall: parseBattedBall(domainResult, note),
+    battedBall: battedBallOverride ?? parseBattedBall(domainResult, note),
     isInfieldHit:
       domainResult === "single" &&
       (note === "内野安" || /^[投捕一二三遊]安/.test(note)),
   });
+}
+
+function getConventionalDoublePlaySequence(
+  position: FieldingPosition
+): FieldingPosition[] | undefined {
+  switch (position) {
+    case "short":
+      return ["short", "second", "first"];
+    case "second":
+      return ["second", "short", "first"];
+    case "third":
+      return ["third", "second", "first"];
+    case "pitcher":
+    case "catcher":
+    case "first":
+      return [position, "short", "first"];
+    default:
+      return undefined;
+  }
 }
 
 function parseBattedBall(
@@ -110,17 +115,37 @@ export function createAtBatEvent({
   result: legacyResult,
   detail,
   movements,
+  battedBall: battedBallOverride,
+  fieldingSequence: fieldingSequenceOverride,
 }: {
   id: string;
   batterId: string;
   result: AtBatResult;
   detail?: string;
   movements: RunnerMovement[];
+  battedBall?: BattedBall;
+  fieldingSequence?: FieldingPosition[];
 }): AtBatEvent {
   const note = detail?.trim() ?? "";
   const selectedResult = mapAtBatSelectionResult(legacyResult, note);
-  const result = normalizeAtBatResultFromMovements(selectedResult, movements);
-  const battedBall = parseBattedBall(result, note);
+  const result = normalizeAtBatResultFromMovements(
+    selectedResult,
+    movements,
+    batterId
+  );
+  const battedBall = battedBallOverride ?? parseBattedBall(result, note);
+  const orderedMovements =
+    result === "doublePlay"
+      ? movements.map((movement, index) => ({
+          ...movement,
+          playOrder: movement.playOrder ?? index + 1,
+        }))
+      : movements;
+  const fieldingSequence =
+    fieldingSequenceOverride ??
+    (result === "doublePlay" && battedBall
+      ? getConventionalDoublePlaySequence(battedBall.position)
+      : undefined);
   return {
     id,
     kind: "atBat",
@@ -128,7 +153,8 @@ export function createAtBatEvent({
     result,
     ...(note ? { note } : {}),
     ...(battedBall ? { battedBall } : {}),
-    movements,
+    ...(fieldingSequence ? { fieldingSequence } : {}),
+    movements: orderedMovements,
   };
 }
 

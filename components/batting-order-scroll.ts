@@ -6,6 +6,15 @@ interface InningColumnScrollMetrics {
   maxScrollLeft: number;
 }
 
+interface CurrentBatterScrollMetrics {
+  isBattingTeam: boolean;
+  isRendered: boolean;
+  rowTop: number;
+  rowBottom: number;
+  viewportTop: number;
+  viewportBottom: number;
+}
+
 /**
  * Centers an inning column in the visible area beside the sticky order/name
  * columns, clamped to the table's scrollable range.
@@ -27,4 +36,16 @@ export function getInningColumnScrollLeft({
     Math.max(0, maxScrollLeft),
     Math.max(0, Math.round(centeredPosition))
   );
+}
+
+export function shouldScrollCurrentBatterIntoView({
+  isBattingTeam,
+  isRendered,
+  rowTop,
+  rowBottom,
+  viewportTop,
+  viewportBottom,
+}: CurrentBatterScrollMetrics): boolean {
+  if (!isBattingTeam || !isRendered) return false;
+  return rowTop < viewportTop || rowBottom > viewportBottom;
 }

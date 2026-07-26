@@ -53,7 +53,9 @@ function GameErrorFallback() {
         />
         <div className="space-y-2">
           <h1 className="text-lg font-bold">画面を表示できませんでした</h1>
-          <p className="text-sm font-semibold">記録データは保存されています</p>
+          <p className="text-sm font-semibold">
+            最後に保存できた時点までの記録を退避できます
+          </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
             JSONを書き出して記録を退避してから、画面を再読み込みしてください。
           </p>

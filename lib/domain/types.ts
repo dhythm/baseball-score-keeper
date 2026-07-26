@@ -75,6 +75,8 @@ export interface RunnerMovement {
   from: RunnerOrigin;
   to: RunnerDestination;
   isRBI: boolean;
+  /** Explicit chronological order within a multi-runner play. */
+  playOrder?: number;
   /**
    * Describes how an out was recorded when that distinction affects scoring.
    * Omitted for legacy events and for outs where the distinction is irrelevant.
@@ -85,6 +87,8 @@ export interface RunnerMovement {
 export interface BattedBall {
   position: FieldingPosition;
   type: "ground" | "fly" | "liner" | "bunt";
+  /** Used by fly-out defaults only when a runner can tag up. */
+  depth?: "shallow" | "deep";
 }
 
 export interface AtBatEvent {
@@ -93,6 +97,8 @@ export interface AtBatEvent {
   batterId: string;
   result: AtBatResult;
   battedBall?: BattedBall;
+  /** Fielders handling the ball in chronological order (for example 6-4-3). */
+  fieldingSequence?: FieldingPosition[];
   note?: string;
   /**
    * Runner outcomes in chronological play order. On a tag third out, this

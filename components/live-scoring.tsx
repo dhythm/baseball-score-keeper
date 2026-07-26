@@ -21,6 +21,7 @@ import {
 import { useGame } from "@/lib/game-context";
 import type {
   AtBatResult,
+  BattedBall,
   GameEvent,
   RunnerMovement,
 } from "@/lib/domain/types";
@@ -60,11 +61,19 @@ import { FeedbackDialog } from "@/components/feedback-dialog";
 import { SituationMiniHeader } from "@/components/situation-mini-header";
 import { EventIntegrityAlert } from "@/components/event-integrity-alert";
 import { GameNoteDialog } from "@/components/game-note-dialog";
+import { DisplaySettingsDialog } from "@/components/display-settings-dialog";
+import { EditHistoryControls } from "@/components/edit-history-controls";
+import { useUiPreferences } from "@/components/ui-preferences-provider";
+import { vibrateOnConfirmation } from "@/lib/ui-preferences";
 
 export function LiveScoring() {
   const { game, dispatch, addEvent } = useGame();
+  const { vibrationEnabled } = useUiPreferences();
   const [pendingResult, setPendingResult] = useState<AtBatResult | null>(null);
   const [pendingDetail, setPendingDetail] = useState<string | undefined>();
+  const [pendingBattedBall, setPendingBattedBall] = useState<
+    BattedBall | undefined
+  >();
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
   const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
   const [baseRunningOpen, setBaseRunningOpen] = useState(false);
@@ -97,10 +106,15 @@ export function LiveScoring() {
     } else {
       toast.success(successMessage);
     }
+    vibrateOnConfirmation(vibrationEnabled, navigator);
     return true;
   };
 
-  const handleAtBatResult = (result: AtBatResult, detail?: string) => {
+  const handleAtBatResult = (
+    result: AtBatResult,
+    detail?: string,
+    battedBall?: BattedBall
+  ) => {
     if (!currentBatter) return;
 
     const movements = getDefaultMovementsForSelection(
@@ -108,7 +122,8 @@ export function LiveScoring() {
       detail,
       game.currentState.runners,
       currentBatter.id,
-      game.currentState.outs
+      game.currentState.outs,
+      battedBall
     );
     const canApplyDefaults = canApplyDefaultMovementsWithoutConfirmation(
       result,
@@ -123,6 +138,7 @@ export function LiveScoring() {
           batterId: currentBatter.id,
           result,
           detail,
+          battedBall,
           movements,
         }),
         "打席を記録しました"
@@ -130,6 +146,7 @@ export function LiveScoring() {
     } else {
       setPendingResult(result);
       setPendingDetail(detail);
+      setPendingBattedBall(battedBall);
     }
   };
 
@@ -143,6 +160,7 @@ export function LiveScoring() {
           batterId: currentBatter.id,
           result: pendingResult,
           detail: pendingDetail,
+          battedBall: pendingBattedBall,
           movements,
         }),
         "打席を記録しました"
@@ -153,6 +171,7 @@ export function LiveScoring() {
 
     setPendingResult(null);
     setPendingDetail(undefined);
+    setPendingBattedBall(undefined);
   };
 
   const handleBaseRunningEvent = (payload: BaseRunningEventResult): boolean => {
@@ -169,7 +188,7 @@ export function LiveScoring() {
 
   const handleUndo = () => {
     if (game.events.length === 0) return;
-    dispatch({ type: "UNDO_LAST_EVENT" });
+    if (!dispatch({ type: "UNDO_LAST_EVENT" })) return;
     toast("直前の記録を取り消しました", {
       action: {
         label: "やり直す",
@@ -202,6 +221,7 @@ export function LiveScoring() {
         </h1>
         <div className="flex shrink-0 items-center gap-0.5">
           <FeedbackDialog />
+          <DisplaySettingsDialog />
           <Button
             type="button"
             variant="ghost"
@@ -249,6 +269,7 @@ export function LiveScoring() {
         <div className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] lg:items-start lg:gap-5">
           <section className="min-w-0 space-y-3 lg:sticky lg:top-[5.25rem]">
             <EventIntegrityAlert game={game} />
+            <EditHistoryControls />
             <Scoreboard game={game} collapsibleOnMobile />
             <GameSituation
               game={game}
@@ -382,16 +403,19 @@ export function LiveScoring() {
           game={game}
           result={pendingResult}
           detail={pendingDetail}
+          battedBall={pendingBattedBall}
           open={!!pendingResult}
           onOpenChange={(open) => {
             if (!open) {
               setPendingResult(null);
               setPendingDetail(undefined);
+              setPendingBattedBall(undefined);
             }
           }}
           onReselectResult={() => {
             setPendingResult(null);
             setPendingDetail(undefined);
+            setPendingBattedBall(undefined);
             setAtBatDialogOpen(true);
           }}
           onConfirm={handleRunnerAdvanceConfirm}

@@ -83,5 +83,8 @@ export function toPersistedGame(game: AppGame): PersistedGameV2 {
     status: game.status,
     config: game.config,
     events: game.events,
+    deletedEvents: game.deletedEvents,
+    undoHistory: game.undoHistory,
+    redoHistory: game.redoHistory,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { DisplaySettingsDialog } from "@/components/display-settings-dialog";
 import { DevelopmentScenarioPanel } from "@/components/development-scenario-panel";
 import { GameHistory } from "@/components/game-history";
 import { Button } from "@/components/ui/button";
@@ -541,7 +542,10 @@ export function GameSetup() {
           <span className="text-xl">&#9918;</span>
           スコアブッくん
         </h1>
-        <FeedbackDialog />
+        <div className="flex items-center gap-0.5">
+          <FeedbackDialog />
+          <DisplaySettingsDialog />
+        </div>
       </header>
 
       <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">

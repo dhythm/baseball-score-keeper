@@ -1,4 +1,28 @@
-import type { TeamSide, TimelineEntry } from "../domain/types";
+import type { TeamSide, TimelineEntry, Violation } from "../domain/types";
+
+export interface RejectedEventIssue {
+  entry: TimelineEntry;
+  violations: Violation[];
+}
+
+export function getRejectedEventIssues(
+  timeline: readonly TimelineEntry[],
+  violations: readonly Violation[]
+): RejectedEventIssue[] {
+  return timeline.flatMap((entry) => {
+    if (entry.applied) return [];
+    return [
+      {
+        entry,
+        violations: violations.filter(
+          (violation) =>
+            violation.severity === "error" &&
+            violation.eventIndex === entry.index
+        ),
+      },
+    ];
+  });
+}
 
 export function getPlayerInningEntries(
   timeline: readonly TimelineEntry[],

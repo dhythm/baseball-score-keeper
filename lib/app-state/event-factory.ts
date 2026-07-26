@@ -52,6 +52,8 @@ export function getDefaultMovementsForSelection(
   batterId: string,
   currentOuts: number
 ): RunnerMovement[] {
+  const note = detail?.trim() ?? "";
+  const domainResult = mapAtBatSelectionResult(result, note);
   if (result === "doublePlay") {
     const movements: RunnerMovement[] = [
       { playerId: batterId, from: "batter", to: "out", isRBI: false },
@@ -67,12 +69,12 @@ export function getDefaultMovementsForSelection(
     }
     return movements;
   }
-  return getDefaultMovements(
-    mapAtBatSelectionResult(result, detail?.trim() ?? ""),
-    runners,
-    batterId,
-    currentOuts
-  );
+  return getDefaultMovements(domainResult, runners, batterId, currentOuts, {
+    battedBall: parseBattedBall(domainResult, note),
+    isInfieldHit:
+      domainResult === "single" &&
+      (note === "内野安" || /^[投捕一二三遊]安/.test(note)),
+  });
 }
 
 function parseBattedBall(

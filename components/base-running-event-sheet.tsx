@@ -19,7 +19,7 @@ import type {
   BaseRunningType,
   RunnerDestination,
   RunnerMovement,
-  Runners,
+  Snapshot,
   TeamSide,
 } from "@/lib/domain/types";
 
@@ -33,7 +33,7 @@ interface BaseRunningEventSheetProps {
   game: AppGame;
   onEvent: (payload: BaseRunningEventResult) => void;
   initialEvent?: BaseRunningEvent;
-  runnerSnapshot?: Runners;
+  snapshot?: Snapshot;
   submitLabel?: string;
 }
 
@@ -68,11 +68,12 @@ export function BaseRunningEventSheet({
   game,
   onEvent,
   initialEvent,
-  runnerSnapshot,
+  snapshot,
   submitLabel = "走塁を記録",
 }: BaseRunningEventSheetProps) {
-  const runners = runnerSnapshot ?? game.currentState.runners;
-  const teamSide: TeamSide = game.currentState.half === "top" ? "away" : "home";
+  const effectiveSnapshot = snapshot ?? game.currentState;
+  const runners = effectiveSnapshot.runners;
+  const teamSide: TeamSide = effectiveSnapshot.half === "top" ? "away" : "home";
   const battingTeam = game.config.teams[teamSide];
   const [selectedType, setSelectedType] = useState<BaseRunningType>(
     initialEvent?.type ?? "steal"

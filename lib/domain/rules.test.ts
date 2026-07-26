@@ -28,6 +28,33 @@ describe("getDefaultMovements", () => {
     ]);
   });
 
+  it("sends a runner from second home on an outfield single", () => {
+    expect(
+      getDefaultMovements(
+        "single",
+        { first: null, second: "r2", third: null },
+        "batter",
+        0,
+        { battedBall: { position: "left", type: "liner" } }
+      )
+    ).toEqual([
+      movement("r2", "second", "home", true),
+      movement("batter", "batter", "first"),
+    ]);
+  });
+
+  it("keeps a runner at third on an infield hit", () => {
+    expect(
+      getDefaultMovements(
+        "single",
+        { first: null, second: null, third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "short", type: "ground" } }
+      )
+    ).toEqual([movement("batter", "batter", "first")]);
+  });
+
   it("advances only forced runners on a walk", () => {
     expect(
       getDefaultMovements(

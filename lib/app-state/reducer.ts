@@ -46,6 +46,21 @@ export interface EventCommandResult {
   accepted: boolean;
   nextState: AppGame;
   violations: Violation[];
+  invalidatedEventIds: string[];
+}
+
+function getNewlyInvalidatedEventIds(
+  state: AppGame,
+  nextState: AppGame
+): string[] {
+  const wasAppliedByEvent = new Map(
+    state.timeline.map((entry) => [entry.event, entry.applied])
+  );
+  return nextState.timeline.flatMap((entry) =>
+    wasAppliedByEvent.get(entry.event) === true && !entry.applied
+      ? [entry.event.id]
+      : []
+  );
 }
 
 export function evaluateEventAddition(
@@ -63,6 +78,7 @@ export function evaluateEventAddition(
     violations: nextState.violations.filter(
       (item) => item.eventId === event.id
     ),
+    invalidatedEventIds: [],
   };
 }
 
@@ -85,6 +101,27 @@ export function evaluateEventUpdate(
     accepted: entry?.event.id === eventId && entry.applied,
     nextState,
     violations: nextState.violations.filter((item) => item.eventId === eventId),
+    invalidatedEventIds: getNewlyInvalidatedEventIds(state, nextState),
+  };
+}
+
+export function evaluateEventDeletion(
+  state: AppGame,
+  eventId: string
+): EventCommandResult | null {
+  if (!state.events.some((event) => event.id === eventId)) return null;
+  const events = state.events.filter((event) => event.id !== eventId);
+  const nextState = deriveGame(
+    persistedInput(state, events),
+    state.manualEnded
+  );
+  return {
+    accepted: true,
+    nextState,
+    violations: nextState.violations.filter(
+      (item) => item.eventId !== undefined
+    ),
+    invalidatedEventIds: getNewlyInvalidatedEventIds(state, nextState),
   };
 }
 
@@ -123,13 +160,8 @@ export function gameReducer(
 
     case "DELETE_EVENT": {
       if (!state) return null;
-      if (!state.events.some((event) => event.id === action.eventId)) {
-        return state;
-      }
-      const events = state.events.filter(
-        (event) => event.id !== action.eventId
-      );
-      return deriveGame(persistedInput(state, events), state.manualEnded);
+      const result = evaluateEventDeletion(state, action.eventId);
+      return result?.nextState ?? state;
     }
 
     case "UNDO_LAST_EVENT":

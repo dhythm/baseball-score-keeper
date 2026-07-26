@@ -93,6 +93,48 @@ describe("createAtBatEvent", () => {
       )
     ).toHaveLength(2);
   });
+
+  it("passes selected batted-ball context to movement defaults", () => {
+    expect(
+      getDefaultMovementsForSelection(
+        "single",
+        "左安",
+        { first: null, second: "r2", third: null },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "r2",
+        from: "second",
+        to: "home",
+        isRBI: true,
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+
+    expect(
+      getDefaultMovementsForSelection(
+        "otherOut",
+        "遊安",
+        { first: null, second: null, third: "r3" },
+        "batter",
+        0
+      )
+    ).toEqual([
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ]);
+  });
 });
 
 describe("management event factories", () => {

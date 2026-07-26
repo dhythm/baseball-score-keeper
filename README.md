@@ -54,9 +54,9 @@
 
 ## 画面URLと履歴
 
-| URL | 画面 |
-| --- | --- |
-| `/` | 新しい試合の設定画面 |
+| URL               | 画面                              |
+| ----------------- | --------------------------------- |
+| `/`               | 新しい試合の設定画面              |
 | `/games/{試合ID}` | 試合中・試合結果（同じURLで表示） |
 
 - 試合を開始すると、その試合固有のURLへ移動します。
@@ -133,14 +133,14 @@ pnpm dev
 
 ### 品質確認
 
-| コマンド | 内容 |
-| --- | --- |
+| コマンド            | 内容                       |
+| ------------------- | -------------------------- |
 | `pnpm format:check` | Prettierによる整形チェック |
-| `pnpm lint` | ESLint |
-| `pnpm typecheck` | TypeScriptの型チェック |
-| `pnpm knip` | 未使用コードの検出 |
-| `pnpm test` | Vitestによるテスト |
-| `pnpm build` | 本番ビルド |
+| `pnpm lint`         | ESLint                     |
+| `pnpm typecheck`    | TypeScriptの型チェック     |
+| `pnpm knip`         | 未使用コードの検出         |
+| `pnpm test`         | Vitestによるテスト         |
+| `pnpm build`        | 本番ビルド                 |
 
 すべてをまとめて確認する場合は `pnpm check` を実行します。コードをPrettierで整形する場合は `pnpm format` を使用してください。
 

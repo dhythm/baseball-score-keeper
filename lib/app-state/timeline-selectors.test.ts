@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { Snapshot, TimelineEntry } from "../domain/types";
-import { getPlayerInningEntries } from "./timeline-selectors";
+import {
+  getPlayerInningEntries,
+  getRejectedEventIssues,
+} from "./timeline-selectors";
 
 const snapshot: Snapshot = {
   inning: 1,
@@ -87,5 +90,45 @@ describe("getPlayerInningEntries", () => {
         ({ event }) => event.id
       )
     ).toEqual(["at-bat", "running", "substitution"]);
+  });
+});
+
+describe("getRejectedEventIssues", () => {
+  it("returns each rejected event once with its error violations", () => {
+    const rejected = entry(
+      "rejected",
+      {
+        id: "rejected",
+        kind: "atBat",
+        batterId: "player",
+        result: "single",
+        movements: [],
+      },
+      { index: 2, applied: false }
+    );
+
+    const issues = getRejectedEventIssues(
+      [rejected],
+      [
+        {
+          code: "WRONG_BATTER",
+          severity: "warning",
+          message: "warning",
+          eventIndex: 2,
+        },
+        {
+          code: "SOURCE_RUNNER_MISMATCH",
+          severity: "error",
+          message: "error",
+          eventIndex: 2,
+        },
+      ]
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.entry.event.id).toBe("rejected");
+    expect(issues[0]?.violations.map((violation) => violation.message)).toEqual(
+      ["error"]
+    );
   });
 });

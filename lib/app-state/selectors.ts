@@ -1,4 +1,9 @@
-import type { Player, TeamSide, TimelineEntry } from "../domain/types";
+import type {
+  Player,
+  Snapshot,
+  TeamSide,
+  TimelineEntry,
+} from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 import type { AppGame } from "./types";
 
@@ -21,13 +26,20 @@ export function getPlayerById(game: AppGame, playerId: string): Player | null {
 }
 
 export function getCurrentBatter(game: AppGame): Player | null {
-  const teamSide = getCurrentTeamSide(game);
+  return getBatterAtSnapshot(game, game.currentState);
+}
+
+export function getBatterAtSnapshot(
+  game: AppGame,
+  snapshot: Snapshot
+): Player | null {
+  const teamSide = snapshot.half === "top" ? "away" : "home";
   const roster = [
     ...game.config.teams[teamSide].players,
     ...(game.config.teams[teamSide].benchPlayers ?? []),
   ];
-  const activePlayerIds = game.currentState.activeLineup[teamSide];
-  const batterIndex = game.currentState.currentBatterIndex[teamSide];
+  const activePlayerIds = snapshot.activeLineup[teamSide];
+  const batterIndex = snapshot.currentBatterIndex[teamSide];
   const playerId = activePlayerIds[batterIndex];
   return roster.find((player) => player.id === playerId) ?? null;
 }

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
-import type { RunnerMovement } from "@/lib/domain/types";
+import type { AtBatEvent, RunnerMovement } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getTimelineEntry } from "@/lib/app-state/selectors";
 import {
@@ -35,6 +35,11 @@ import { AtBatResultFlow } from "@/components/at-bat-result-flow";
 import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { SituationMiniHeader } from "@/components/situation-mini-header";
+import {
+  evaluateEventDeletion,
+  evaluateEventUpdate,
+} from "@/lib/app-state/reducer";
 
 export type AtBatResultDialogProps = {
   game: AppGame;
@@ -58,6 +63,10 @@ export function AtBatResultDialog({
   const { dispatch, updateEvent } = useGame();
   const [resetToken, setResetToken] = useState(0);
   const [showDelete, setShowDelete] = useState(false);
+  const [cascadeUpdate, setCascadeUpdate] = useState<{
+    event: AtBatEvent;
+    invalidatedCount: number;
+  } | null>(null);
   const [pendingEdit, setPendingEdit] = useState<{
     result: AtBatResult;
     detail?: string;
@@ -94,18 +103,9 @@ export function AtBatResultDialog({
     onOpenChange(false);
   };
 
-  const handleEditMovements = (movements: RunnerMovement[]) => {
-    if (!eventId || !atBat || !pendingEdit) return;
-    const result = updateEvent(
-      eventId,
-      createAtBatEvent({
-        id: eventId,
-        batterId: atBat.batterId,
-        result: pendingEdit.result,
-        detail: pendingEdit.detail,
-        movements,
-      })
-    );
+  const commitUpdate = (replacement: AtBatEvent) => {
+    if (!eventId) return;
+    const result = updateEvent(eventId, replacement);
     if (!result.accepted) {
       toast.error(
         result.violations[0]
@@ -114,8 +114,35 @@ export function AtBatResultDialog({
       );
       return;
     }
-    toast.success("打席結果の変更を保存しました");
+    if (result.invalidatedEventIds.length > 0) {
+      toast.warning(
+        `打席結果を変更し、後続${result.invalidatedEventIds.length}件が無効になりました`
+      );
+    } else {
+      toast.success("打席結果の変更を保存しました");
+    }
     setPendingEdit(null);
+    setCascadeUpdate(null);
+  };
+
+  const handleEditMovements = (movements: RunnerMovement[]) => {
+    if (!eventId || !atBat || !pendingEdit) return;
+    const replacement = createAtBatEvent({
+      id: eventId,
+      batterId: atBat.batterId,
+      result: pendingEdit.result,
+      detail: pendingEdit.detail,
+      movements,
+    });
+    const preview = evaluateEventUpdate(game, eventId, replacement);
+    if (preview && preview.invalidatedEventIds.length > 0) {
+      setCascadeUpdate({
+        event: replacement,
+        invalidatedCount: preview.invalidatedEventIds.length,
+      });
+      return;
+    }
+    commitUpdate(replacement);
   };
 
   const handleDelete = () => {
@@ -131,6 +158,10 @@ export function AtBatResultDialog({
       : game.currentState.outs;
 
   const title = mode === "edit" ? "打席結果の修正" : "打席結果の入力";
+  const situationSnapshot = timelineEntry?.before ?? game.currentState;
+  const deleteImpact = eventId
+    ? (evaluateEventDeletion(game, eventId)?.invalidatedEventIds.length ?? 0)
+    : 0;
 
   return (
     <>
@@ -141,6 +172,11 @@ export function AtBatResultDialog({
         >
           <DialogHeader className="relative shrink-0 border-b border-border bg-card px-5 py-4 pr-16 text-left sm:border-0 sm:bg-transparent sm:p-0 sm:pr-10">
             <DialogTitle>{title}</DialogTitle>
+            <SituationMiniHeader
+              game={game}
+              snapshot={situationSnapshot}
+              batterId={atBat?.batterId}
+            />
             <DialogDescription className="sr-only">
               打席結果を選択
             </DialogDescription>
@@ -191,8 +227,7 @@ export function AtBatResultDialog({
           detail={pendingEdit.detail}
           open
           context={{
-            runners: timelineEntry.before.runners,
-            outs: timelineEntry.before.outs,
+            snapshot: timelineEntry.before,
             batterId: atBat.batterId,
           }}
           initialMovementsOverride={pendingEdit.initialMovements}
@@ -208,7 +243,9 @@ export function AtBatResultDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>この打席を削除しますか？</AlertDialogTitle>
             <AlertDialogDescription>
-              削除すると以降のイニング・走者・スコアが再計算されます。元に戻せません。
+              {deleteImpact > 0
+                ? `削除すると後続${deleteImpact}件が無効になります。以降のイニング・走者・スコアも再計算され、元に戻せません。`
+                : "削除すると以降のイニング・走者・スコアが再計算されます。元に戻せません。"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -220,6 +257,34 @@ export function AtBatResultDialog({
               className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               削除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={cascadeUpdate !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setCascadeUpdate(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>この変更を保存しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この修正で後続{cascadeUpdate?.invalidatedCount ?? 0}
+              件が無効になります。無効になった記録は試合画面に警告として残ります。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>戻って確認</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (cascadeUpdate) commitUpdate(cascadeUpdate.event);
+              }}
+            >
+              変更を保存
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

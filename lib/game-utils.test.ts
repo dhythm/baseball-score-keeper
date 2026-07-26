@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canApplyDefaultMovementsWithoutConfirmation,
   isAutoAdvanceAtBatResult,
   syncNonLineupStartingPitcher,
 } from "./game-utils";
@@ -13,6 +14,49 @@ describe("isAutoAdvanceAtBatResult", () => {
   it("keeps ordinary strikeouts on the automatic path", () => {
     expect(isAutoAdvanceAtBatResult("strikeoutSwinging")).toBe(true);
     expect(isAutoAdvanceAtBatResult("strikeoutLooking")).toBe(true);
+  });
+
+  it("skips confirmation when an empty-base result has one complete batter movement", () => {
+    expect(
+      canApplyDefaultMovementsWithoutConfirmation(
+        "groundOut",
+        { first: null, second: null, third: null },
+        [
+          {
+            playerId: "batter",
+            from: "batter",
+            to: "out",
+            isRBI: false,
+          },
+        ]
+      )
+    ).toBe(true);
+  });
+
+  it("keeps confirmation for occupied bases and uncaught third strikes", () => {
+    const batterMovement = [
+      {
+        playerId: "batter",
+        from: "batter" as const,
+        to: "first" as const,
+        isRBI: false,
+      },
+    ];
+
+    expect(
+      canApplyDefaultMovementsWithoutConfirmation(
+        "single",
+        { first: null, second: "runner", third: null },
+        batterMovement
+      )
+    ).toBe(false);
+    expect(
+      canApplyDefaultMovementsWithoutConfirmation(
+        "uncaughtThirdStrike",
+        { first: null, second: null, third: null },
+        batterMovement
+      )
+    ).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import type { RunnerMovement, Runners } from "./domain/types";
 import type { AtBatResult, FieldingPosition, Player, Team } from "./types";
 import { FIELDING_POSITIONS } from "./types";
 
@@ -10,6 +11,28 @@ export function isAutoAdvanceAtBatResult(result: AtBatResult): boolean {
     result === "strikeoutLooking" ||
     result === "walk" ||
     result === "hitByPitch"
+  );
+}
+
+/**
+ * Returns true only when the proposed movements fully describe a routine play
+ * without asking the scorer to make a runner decision.
+ */
+export function canApplyDefaultMovementsWithoutConfirmation(
+  result: AtBatResult,
+  runners: Runners,
+  movements: readonly RunnerMovement[]
+): boolean {
+  if (isAutoAdvanceAtBatResult(result)) return true;
+  if (result !== "groundOut" && result !== "flyOut" && result !== "otherOut") {
+    return false;
+  }
+  const hasRunner = Object.values(runners).some(Boolean);
+  return (
+    !hasRunner &&
+    movements.length === 1 &&
+    movements[0]?.from === "batter" &&
+    movements[0].to === "out"
   );
 }
 

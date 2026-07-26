@@ -21,7 +21,10 @@ import {
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
 import type { GameEvent, RunnerMovement } from "@/lib/domain/types";
-import { isAutoAdvanceAtBatResult, generateId } from "@/lib/game-utils";
+import {
+  canApplyDefaultMovementsWithoutConfirmation,
+  generateId,
+} from "@/lib/game-utils";
 import { getCurrentBatter } from "@/lib/app-state/selectors";
 import {
   createAtBatEvent,
@@ -49,6 +52,8 @@ import {
 import { toast } from "sonner";
 import { formatViolationMessage } from "@/lib/app-state/feedback";
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { SituationMiniHeader } from "@/components/situation-mini-header";
+import { EventIntegrityAlert } from "@/components/event-integrity-alert";
 
 export function LiveScoring() {
   const { game, dispatch, addEvent } = useGame();
@@ -88,17 +93,20 @@ export function LiveScoring() {
   const handleAtBatResult = (result: AtBatResult, detail?: string) => {
     if (!currentBatter) return;
 
-    const isAutoAdvance = isAutoAdvanceAtBatResult(result);
+    const movements = getDefaultMovementsForSelection(
+      result,
+      detail,
+      game.currentState.runners,
+      currentBatter.id,
+      game.currentState.outs
+    );
+    const canApplyDefaults = canApplyDefaultMovementsWithoutConfirmation(
+      result,
+      game.currentState.runners,
+      movements
+    );
 
-    if (isAutoAdvance) {
-      const movements = getDefaultMovementsForSelection(
-        result,
-        detail,
-        game.currentState.runners,
-        currentBatter.id,
-        game.currentState.outs
-      );
-
+    if (canApplyDefaults) {
       recordEvent(
         createAtBatEvent({
           id: generateId(),
@@ -215,6 +223,7 @@ export function LiveScoring() {
       <main className="w-full flex-1 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-6 sm:pt-5 lg:px-6">
         <div className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] lg:items-start lg:gap-5">
           <section className="min-w-0 space-y-3 lg:sticky lg:top-[5.25rem]">
+            <EventIntegrityAlert game={game} />
             <Scoreboard game={game} />
             <GameSituation
               game={game}
@@ -282,6 +291,7 @@ export function LiveScoring() {
             <SheetTitle className="text-lg font-extrabold">
               走塁・打席外
             </SheetTitle>
+            <SituationMiniHeader game={game} snapshot={game.currentState} />
           </SheetHeader>
           <BaseRunningEventSheet
             game={game}
@@ -301,6 +311,7 @@ export function LiveScoring() {
         >
           <SheetHeader className="sticky top-0 z-10 border-b border-border bg-card px-5 py-4">
             <SheetTitle className="text-lg font-extrabold">選手交代</SheetTitle>
+            <SituationMiniHeader game={game} snapshot={game.currentState} />
           </SheetHeader>
           <SubstitutionSheet
             game={game}

@@ -12,12 +12,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { AtBatResult, Base } from "@/lib/types";
-import type { RunnerMovement, Runners } from "@/lib/domain/types";
+import type { RunnerMovement, Snapshot } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getCurrentBatter, getPlayerById } from "@/lib/app-state/selectors";
 import { getDefaultMovementsForSelection } from "@/lib/app-state/event-factory";
 import { RESULT_LABELS } from "@/lib/types";
 import { initializeRbiByPlayerId } from "@/lib/domain/runner-advance";
+import { SituationMiniHeader } from "@/components/situation-mini-header";
 
 type Destination = Base | "home" | "out";
 
@@ -52,8 +53,7 @@ interface RunnerAdvanceSheetProps {
     runsScored: number
   ) => void;
   context?: {
-    runners: Runners;
-    outs: number;
+    snapshot: Snapshot;
     batterId: string;
   };
   initialMovementsOverride?: RunnerMovement[];
@@ -77,8 +77,9 @@ export function RunnerAdvanceSheet({
   context,
   initialMovementsOverride,
 }: RunnerAdvanceSheetProps) {
-  const runners = context?.runners ?? game.currentState.runners;
-  const outs = context?.outs ?? game.currentState.outs;
+  const snapshot = context?.snapshot ?? game.currentState;
+  const runners = snapshot.runners;
+  const outs = snapshot.outs;
   const currentBatter = context
     ? getPlayerById(game, context.batterId)
     : getCurrentBatter(game);
@@ -324,6 +325,11 @@ export function RunnerAdvanceSheet({
           <SheetTitle className="text-lg font-extrabold">
             ランナー進塁確認
           </SheetTitle>
+          <SituationMiniHeader
+            game={game}
+            snapshot={snapshot}
+            batterId={currentBatter?.id}
+          />
         </SheetHeader>
 
         <div className="space-y-6 px-4 py-5 sm:px-5">

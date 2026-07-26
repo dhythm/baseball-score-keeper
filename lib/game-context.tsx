@@ -29,6 +29,7 @@ interface GameContextValue {
   addEvent: (event: GameEvent) => {
     accepted: boolean;
     violations: Violation[];
+    invalidatedEventIds: string[];
   };
   updateEvent: (
     eventId: string,
@@ -36,6 +37,7 @@ interface GameContextValue {
   ) => {
     accepted: boolean;
     violations: Violation[];
+    invalidatedEventIds: string[];
   };
 }
 
@@ -68,7 +70,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const addEvent = useCallback(
     (event: GameEvent) => {
-      if (!game) return { accepted: false, violations: [] };
+      if (!game)
+        return {
+          accepted: false,
+          violations: [],
+          invalidatedEventIds: [],
+        };
       const result = evaluateEventAddition(game, event);
       if (result.accepted) {
         dispatch({ type: "ADD_EVENT", event });
@@ -76,6 +83,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return {
         accepted: result.accepted,
         violations: result.violations,
+        invalidatedEventIds: result.invalidatedEventIds,
       };
     },
     [game]
@@ -83,15 +91,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const updateEvent = useCallback(
     (eventId: string, event: GameEvent) => {
-      if (!game) return { accepted: false, violations: [] };
+      if (!game)
+        return {
+          accepted: false,
+          violations: [],
+          invalidatedEventIds: [],
+        };
       const result = evaluateEventUpdate(game, eventId, event);
-      if (!result) return { accepted: false, violations: [] };
+      if (!result)
+        return {
+          accepted: false,
+          violations: [],
+          invalidatedEventIds: [],
+        };
       if (result.accepted) {
         dispatch({ type: "UPDATE_EVENT", eventId, event });
       }
       return {
         accepted: result.accepted,
         violations: result.violations,
+        invalidatedEventIds: result.invalidatedEventIds,
       };
     },
     [game]

@@ -1,10 +1,16 @@
 import type {
   AtBatResult,
   Base,
+  BattedBall,
   RunnerMovement,
   Runners,
   Violation,
 } from "./types";
+
+interface DefaultMovementContext {
+  battedBall?: BattedBall;
+  isInfieldHit?: boolean;
+}
 
 function move(
   playerId: string,
@@ -49,7 +55,8 @@ export function getDefaultMovements(
   result: AtBatResult,
   runners: Runners,
   batterId: string,
-  currentOuts = 0
+  currentOuts = 0,
+  context: DefaultMovementContext = {}
 ): RunnerMovement[] {
   switch (result) {
     case "homerun": {
@@ -97,13 +104,44 @@ export function getDefaultMovements(
       return movements;
     }
 
-    case "single":
+    case "single": {
+      const isOutfieldHit =
+        context.battedBall?.position === "left" ||
+        context.battedBall?.position === "center" ||
+        context.battedBall?.position === "right";
+      const isInfieldHit =
+        context.isInfieldHit ||
+        (context.battedBall?.type === "ground" && !isOutfieldHit);
+
+      if (isInfieldHit) {
+        return getForcedAdvanceMovements(runners, batterId, true);
+      }
+
+      const movements: RunnerMovement[] = [];
+      if (runners.third) {
+        movements.push(move(runners.third, "third", "home", true));
+      }
+      if (runners.second) {
+        movements.push(
+          move(
+            runners.second,
+            "second",
+            isOutfieldHit ? "home" : "third",
+            isOutfieldHit
+          )
+        );
+      }
+      if (runners.first) {
+        movements.push(move(runners.first, "first", "second"));
+      }
+      movements.push(move(batterId, "batter", "first"));
+      return movements;
+    }
+
     case "error": {
       const movements: RunnerMovement[] = [];
       if (runners.third) {
-        movements.push(
-          move(runners.third, "third", "home", result === "single")
-        );
+        movements.push(move(runners.third, "third", "home"));
       }
       if (runners.second) {
         movements.push(move(runners.second, "second", "third"));

@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { EventIntegrityAlert } from "@/components/event-integrity-alert";
 
 function InningDetails({ game }: { game: AppGame }) {
   const groupedEntries: Record<string, TimelineEntry[]> = {};
@@ -257,6 +258,7 @@ export function GameResult() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl space-y-4 px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-6">
+        <EventIntegrityAlert game={game} />
         <Scoreboard game={game} />
         {game.currentState.gameEndReasonDetail && (
           <p className="rounded-lg bg-muted px-3 py-2 text-center text-sm text-muted-foreground">

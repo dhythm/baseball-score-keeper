@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { GameEvent, Team } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
-import { gameReducer } from "./reducer";
+import {
+  evaluateEventDeletion,
+  evaluateEventUpdate,
+  gameReducer,
+} from "./reducer";
 import {
   getCurrentBatter,
   getNextBatter,
@@ -314,6 +318,104 @@ describe("app-state gameReducer", () => {
     expect(rejected).toBe(loaded);
     expect(rejected?.events[0]).toEqual(out("first", "away-1"));
     expect(rejected?.currentState.outs).toBe(1);
+  });
+
+  it("reports downstream events invalidated by an edit", () => {
+    const single: GameEvent = {
+      id: "single",
+      kind: "atBat",
+      batterId: "away-1",
+      result: "single",
+      movements: [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ],
+    };
+    const doublePlay: GameEvent = {
+      id: "double-play",
+      kind: "atBat",
+      batterId: "away-2",
+      result: "otherOut",
+      movements: [
+        {
+          playerId: "away-1",
+          from: "first",
+          to: "out",
+          isRBI: false,
+          outType: "force",
+        },
+        {
+          playerId: "away-2",
+          from: "batter",
+          to: "out",
+          isRBI: false,
+        },
+      ],
+    };
+    const state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([single, doublePlay]),
+    })!;
+
+    const result = evaluateEventUpdate(
+      state,
+      "single",
+      out("replacement", "away-1")
+    );
+
+    expect(result?.accepted).toBe(true);
+    expect(result?.invalidatedEventIds).toEqual(["double-play"]);
+  });
+
+  it("reports downstream events invalidated by a deletion", () => {
+    const single: GameEvent = {
+      id: "single",
+      kind: "atBat",
+      batterId: "away-1",
+      result: "single",
+      movements: [
+        {
+          playerId: "away-1",
+          from: "batter",
+          to: "first",
+          isRBI: false,
+        },
+      ],
+    };
+    const doublePlay: GameEvent = {
+      id: "double-play",
+      kind: "atBat",
+      batterId: "away-2",
+      result: "otherOut",
+      movements: [
+        {
+          playerId: "away-1",
+          from: "first",
+          to: "out",
+          isRBI: false,
+          outType: "force",
+        },
+        {
+          playerId: "away-2",
+          from: "batter",
+          to: "out",
+          isRBI: false,
+        },
+      ],
+    };
+    const state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([single, doublePlay]),
+    })!;
+
+    const result = evaluateEventDeletion(state, "single");
+
+    expect(result?.accepted).toBe(true);
+    expect(result?.invalidatedEventIds).toEqual(["double-play"]);
   });
 });
 

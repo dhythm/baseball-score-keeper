@@ -7,9 +7,14 @@ import { getPlayerById } from "@/lib/app-state/selectors";
 interface DiamondFieldProps {
   runners: Runners;
   game: AppGame;
+  onRunnerSelect?: (runnerId: string) => void;
 }
 
-export function DiamondField({ runners, game }: DiamondFieldProps) {
+export function DiamondField({
+  runners,
+  game,
+  onRunnerSelect,
+}: DiamondFieldProps) {
   const firstRunner = runners.first ? getPlayerById(game, runners.first) : null;
   const secondRunner = runners.second
     ? getPlayerById(game, runners.second)
@@ -93,21 +98,36 @@ export function DiamondField({ runners, game }: DiamondFieldProps) {
         />
       </svg>
 
-      <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
+      <div className="absolute inset-0">
         {secondRunner && (
-          <div className="absolute top-[5%] left-1/2 -translate-x-1/2 text-[10px] font-medium text-accent-foreground bg-accent/90 px-1.5 py-0.5 rounded whitespace-nowrap">
+          <button
+            type="button"
+            className="absolute left-1/2 top-[-5%] flex min-h-11 min-w-11 -translate-x-1/2 touch-manipulation items-center justify-center rounded-lg bg-accent px-2 text-[10px] font-bold text-accent-foreground shadow-sm"
+            onClick={() => onRunnerSelect?.(secondRunner.id)}
+            aria-label={`2塁走者 ${secondRunner.name} の走塁を入力`}
+          >
             {secondRunner.name}
-          </div>
+          </button>
         )}
         {firstRunner && (
-          <div className="absolute top-[42%] right-[0%] text-[10px] font-medium text-accent-foreground bg-accent/90 px-1.5 py-0.5 rounded whitespace-nowrap">
+          <button
+            type="button"
+            className="absolute right-[-8%] top-[35%] flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-lg bg-accent px-2 text-[10px] font-bold text-accent-foreground shadow-sm"
+            onClick={() => onRunnerSelect?.(firstRunner.id)}
+            aria-label={`1塁走者 ${firstRunner.name} の走塁を入力`}
+          >
             {firstRunner.name}
-          </div>
+          </button>
         )}
         {thirdRunner && (
-          <div className="absolute top-[42%] left-[0%] text-[10px] font-medium text-accent-foreground bg-accent/90 px-1.5 py-0.5 rounded whitespace-nowrap">
+          <button
+            type="button"
+            className="absolute left-[-8%] top-[35%] flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-lg bg-accent px-2 text-[10px] font-bold text-accent-foreground shadow-sm"
+            onClick={() => onRunnerSelect?.(thirdRunner.id)}
+            aria-label={`3塁走者 ${thirdRunner.name} の走塁を入力`}
+          >
             {thirdRunner.name}
-          </div>
+          </button>
         )}
       </div>
     </div>

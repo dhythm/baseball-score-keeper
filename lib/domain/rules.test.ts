@@ -55,6 +55,104 @@ describe("getDefaultMovements", () => {
     ).toEqual([movement("batter", "batter", "first")]);
   });
 
+  it("sends a runner from first home on an outfield double", () => {
+    expect(
+      getDefaultMovements(
+        "double",
+        { first: "r1", second: null, third: null },
+        "batter",
+        0,
+        { battedBall: { position: "center", type: "liner" } }
+      )
+    ).toEqual([
+      movement("r1", "first", "home", true),
+      movement("batter", "batter", "second"),
+    ]);
+  });
+
+  it("proposes forced and productive advances on a ground out", () => {
+    expect(
+      getDefaultMovements(
+        "groundOut",
+        { first: "r1", second: "r2", third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "short", type: "ground" } }
+      )
+    ).toEqual([
+      movement("r3", "third", "home", true),
+      movement("r2", "second", "third"),
+      { ...movement("r1", "first", "out"), outType: "force" },
+      movement("batter", "batter", "first"),
+    ]);
+
+    expect(
+      getDefaultMovements(
+        "groundOut",
+        { first: null, second: "r2", third: null },
+        "batter",
+        0,
+        { battedBall: { position: "second", type: "ground" } }
+      )
+    ).toEqual([
+      movement("r2", "second", "third"),
+      movement("batter", "batter", "out"),
+    ]);
+  });
+
+  it("proposes touch-ups only for an outfield fly", () => {
+    expect(
+      getDefaultMovements(
+        "flyOut",
+        { first: "r1", second: "r2", third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "right", type: "fly" } }
+      )
+    ).toEqual([
+      movement("r3", "third", "home", true),
+      movement("r2", "second", "third"),
+      movement("batter", "batter", "out"),
+    ]);
+
+    expect(
+      getDefaultMovements(
+        "flyOut",
+        { first: null, second: "r2", third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "short", type: "fly" } }
+      )
+    ).toEqual([movement("batter", "batter", "out")]);
+  });
+
+  it("advances only forced runners on an infield error", () => {
+    expect(
+      getDefaultMovements(
+        "error",
+        { first: null, second: null, third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "third", type: "ground" } }
+      )
+    ).toEqual([movement("batter", "batter", "first")]);
+
+    expect(
+      getDefaultMovements(
+        "error",
+        { first: "r1", second: "r2", third: "r3" },
+        "batter",
+        0,
+        { battedBall: { position: "short", type: "ground" } }
+      )
+    ).toEqual([
+      movement("r3", "third", "home"),
+      movement("r2", "second", "third"),
+      movement("r1", "first", "second"),
+      movement("batter", "batter", "first"),
+    ]);
+  });
+
   it("advances only forced runners on a walk", () => {
     expect(
       getDefaultMovements(

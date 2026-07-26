@@ -38,6 +38,7 @@ interface BaseRunningEventSheetProps {
   game: AppGame;
   onEvent: (payload: BaseRunningEventResult) => void;
   initialEvent?: BaseRunningEvent;
+  initialRunnerId?: string;
   snapshot?: Snapshot;
   submitLabel?: string;
 }
@@ -56,6 +57,7 @@ export function BaseRunningEventSheet({
   game,
   onEvent,
   initialEvent,
+  initialRunnerId,
   snapshot,
   submitLabel = "走塁を記録",
 }: BaseRunningEventSheetProps) {
@@ -129,16 +131,21 @@ export function BaseRunningEventSheet({
     (!creditRbi || (hasHomeDestination && Boolean(rbiBatterId)));
 
   useEffect(() => {
-    if (initialEvent || runnerOptions.length !== 1) return;
-    const runner = runnerOptions[0];
-    const key = `${runner.id}:${runner.base}`;
+    if (initialEvent) return;
+    const runner = initialRunnerId
+      ? runnerOptions.find((option) => option.id === initialRunnerId)
+      : runnerOptions.length === 1
+        ? runnerOptions[0]
+        : undefined;
+    if (!runner) return;
+    const key = `${initialRunnerId ?? "only"}:${runner.id}:${runner.base}`;
     if (autoInitializedRunnerKey.current === key) return;
     autoInitializedRunnerKey.current = key;
     setSelectedRunnerIds([runner.id]);
     setDestinationByRunnerId({
       [runner.id]: getConventionalAdvanceDestination(runner.base),
     });
-  }, [initialEvent, runnerOptions]);
+  }, [initialEvent, initialRunnerId, runnerOptions]);
 
   const toggleRunner = (playerId: string, checked: boolean) => {
     setSelectedRunnerIds((current) =>

@@ -68,6 +68,9 @@ export function LiveScoring() {
   const [showEndGameDialog, setShowEndGameDialog] = useState(false);
   const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
   const [baseRunningOpen, setBaseRunningOpen] = useState(false);
+  const [initialBaseRunningRunnerId, setInitialBaseRunningRunnerId] = useState<
+    string | undefined
+  >();
   const [substitutionOpen, setSubstitutionOpen] = useState(false);
   const [gameNoteOpen, setGameNoteOpen] = useState(false);
   const [gameEndReason, setGameEndReason] = useState("規定回終了");
@@ -250,7 +253,14 @@ export function LiveScoring() {
             <GameSituation
               game={game}
               onRecordResult={() => setAtBatDialogOpen(true)}
-              onOpenBaseRunning={() => setBaseRunningOpen(true)}
+              onOpenBaseRunning={() => {
+                setInitialBaseRunningRunnerId(undefined);
+                setBaseRunningOpen(true);
+              }}
+              onRunnerSelect={(runnerId) => {
+                setInitialBaseRunningRunnerId(runnerId);
+                setBaseRunningOpen(true);
+              }}
             />
           </section>
           <section className="min-w-0">
@@ -280,7 +290,10 @@ export function LiveScoring() {
               !game.currentState.runners.second &&
               !game.currentState.runners.third
             }
-            onClick={() => setBaseRunningOpen(true)}
+            onClick={() => {
+              setInitialBaseRunningRunnerId(undefined);
+              setBaseRunningOpen(true);
+            }}
           >
             <Footprints className="h-4 w-4" />
             走塁
@@ -315,7 +328,13 @@ export function LiveScoring() {
         }
       />
 
-      <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>
+      <Sheet
+        open={baseRunningOpen}
+        onOpenChange={(open) => {
+          setBaseRunningOpen(open);
+          if (!open) setInitialBaseRunningRunnerId(undefined);
+        }}
+      >
         <SheetContent
           side="bottom"
           className="left-1/2 right-auto max-h-[88dvh] w-[min(100%,42rem)] -translate-x-1/2 gap-0 overflow-y-auto rounded-t-[1.75rem] border-x border-t bg-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
@@ -328,6 +347,7 @@ export function LiveScoring() {
           </SheetHeader>
           <BaseRunningEventSheet
             game={game}
+            initialRunnerId={initialBaseRunningRunnerId}
             onEvent={(p) => {
               if (handleBaseRunningEvent(p)) {
                 setBaseRunningOpen(false);

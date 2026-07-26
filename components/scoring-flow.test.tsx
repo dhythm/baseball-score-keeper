@@ -11,6 +11,7 @@ import type { GameConfig, GameEvent } from "@/lib/domain/types";
 import { GameProvider, useGame } from "@/lib/game-context";
 import { AtBatResultFlow } from "./at-bat-result-flow";
 import { BaseRunningEventSheet } from "./base-running-event-sheet";
+import { DiamondField } from "./diamond-field";
 import { GameNoteDialog } from "./game-note-dialog";
 import { LiveScoring } from "./live-scoring";
 import { Scoreboard } from "./scoreboard";
@@ -20,7 +21,10 @@ const config: GameConfig = {
   teams: {
     away: {
       name: "先攻",
-      players: [{ id: "away-1", name: "先頭打者", order: 1 }],
+      players: [
+        { id: "away-1", name: "先頭打者", order: 1 },
+        { id: "away-2", name: "二番打者", order: 2 },
+      ],
     },
     home: {
       name: "後攻",
@@ -43,6 +47,30 @@ const runnerOnFirst: GameEvent = {
     },
   ],
 };
+
+const runnersOnFirstAndSecond: GameEvent[] = [
+  runnerOnFirst,
+  {
+    id: "second-single",
+    kind: "atBat",
+    batterId: "away-2",
+    result: "single",
+    movements: [
+      {
+        playerId: "away-1",
+        from: "first",
+        to: "second",
+        isRBI: false,
+      },
+      {
+        playerId: "away-2",
+        from: "batter",
+        to: "first",
+        isRBI: false,
+      },
+    ],
+  },
+];
 
 function createGame(events: GameEvent[]): AppGame {
   const game = gameReducer(null, {
@@ -116,6 +144,103 @@ describe("scoring UI flows", () => {
         },
       ],
     });
+  });
+
+  it("preselects only the requested runner and their conventional next base", async () => {
+    const user = userEvent.setup();
+    const onEvent = vi.fn();
+    render(
+      <BaseRunningEventSheet
+        game={createGame(runnersOnFirstAndSecond)}
+        initialRunnerId="away-1"
+        onEvent={onEvent}
+      />
+    );
+
+    const requestedRunner = screen.getByRole("checkbox", {
+      name: "2塁・先頭打者",
+    });
+    const otherRunner = screen.getByRole("checkbox", {
+      name: "1塁・二番打者",
+    });
+    await waitFor(() =>
+      expect(requestedRunner.getAttribute("data-state")).toBe("checked")
+    );
+    expect(otherRunner.getAttribute("data-state")).toBe("unchecked");
+    expect(
+      screen.getByRole("radio", { name: "3塁" }).getAttribute("data-state")
+    ).toBe("on");
+
+    await user.click(screen.getByRole("button", { name: "走塁を記録" }));
+
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "steal",
+      movements: [
+        {
+          playerId: "away-1",
+          from: "second",
+          to: "third",
+          isRBI: false,
+        },
+      ],
+    });
+  });
+
+  it("sets a conventional destination for every runner in a double steal", async () => {
+    const user = userEvent.setup();
+    const onEvent = vi.fn();
+    render(
+      <BaseRunningEventSheet
+        game={createGame(runnersOnFirstAndSecond)}
+        onEvent={onEvent}
+      />
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "1塁・二番打者" }));
+    await user.click(screen.getByRole("checkbox", { name: "2塁・先頭打者" }));
+    await user.click(screen.getByRole("button", { name: "走塁を記録" }));
+
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "steal",
+      movements: [
+        {
+          playerId: "away-2",
+          from: "first",
+          to: "second",
+          isRBI: false,
+        },
+        {
+          playerId: "away-1",
+          from: "second",
+          to: "third",
+          isRBI: false,
+        },
+      ],
+    });
+  });
+
+  it("opens runner input from an occupied base with a touch-sized button", async () => {
+    const user = userEvent.setup();
+    const onRunnerSelect = vi.fn();
+    const game = createGame(runnersOnFirstAndSecond);
+    render(
+      <DiamondField
+        game={game}
+        runners={game.currentState.runners}
+        onRunnerSelect={onRunnerSelect}
+      />
+    );
+
+    const secondBaseRunner = screen.getByRole("button", {
+      name: "2塁走者 先頭打者 の走塁を入力",
+    });
+    expect(secondBaseRunner.className).toContain("min-h-11");
+    expect(secondBaseRunner.className).toContain("min-w-11");
+
+    await user.click(secondBaseRunner);
+
+    expect(onRunnerSelect).toHaveBeenCalledWith("away-1");
+    expect(screen.queryByRole("button", { name: /3塁走者/ })).toBeNull();
   });
 
   it("trims and records a lightweight game note", async () => {

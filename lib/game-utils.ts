@@ -30,15 +30,10 @@ export function canApplyDefaultMovementsWithoutConfirmation(
   movements: readonly RunnerMovement[]
 ): boolean {
   if (isAutoAdvanceAtBatResult(result)) return true;
-  if (result !== "groundOut" && result !== "flyOut" && result !== "otherOut") {
-    return false;
-  }
+  if (result === "uncaughtThirdStrike") return false;
   const hasRunner = Object.values(runners).some(Boolean);
   return (
-    !hasRunner &&
-    movements.length === 1 &&
-    movements[0]?.from === "batter" &&
-    movements[0].to === "out"
+    !hasRunner && movements.length === 1 && movements[0]?.from === "batter"
   );
 }
 

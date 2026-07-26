@@ -17,11 +17,7 @@ import { useGame } from "@/lib/game-context";
 import { DEVELOPMENT_GAME_SCENARIOS } from "@/lib/dev-fixtures/game-scenarios";
 import { shouldShowDevelopmentTools } from "@/lib/development-mode";
 
-export function DevelopmentScenarioPanel({
-  onApplySamplePreset,
-}: {
-  onApplySamplePreset: () => void;
-}) {
+export function DevelopmentScenarioPanel() {
   const { dispatch } = useGame();
   const [scenarioId, setScenarioId] = useState(
     DEVELOPMENT_GAME_SCENARIOS[0]?.id ?? ""
@@ -38,11 +34,6 @@ export function DevelopmentScenarioPanel({
     dispatch({ type: "LOAD_GAME", game: scenario.createGame() });
     toast.success(`検証シナリオ「${scenario.title}」を読み込みました`);
   };
-  const applySamplePreset = () => {
-    onApplySamplePreset();
-    toast.success("両チーム9人の入力フォームを設定しました");
-  };
-
   return (
     <Card className="gap-3 border-dashed border-amber-500/70 bg-amber-50/70 py-4 dark:bg-amber-950/20">
       <CardHeader className="space-y-2 px-4 py-0">
@@ -59,20 +50,8 @@ export function DevelopmentScenarioPanel({
           この領域はローカルの開発サーバーでだけ表示され、本番環境には表示されません。
         </p>
       </CardHeader>
-      <CardContent className="space-y-4 px-4">
+      <CardContent className="px-4">
         <div className="space-y-2">
-          <p className="text-sm font-semibold">新規試合の入力確認</p>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-full bg-background"
-            onClick={applySamplePreset}
-          >
-            両チーム9人の入力フォームを設定
-          </Button>
-        </div>
-
-        <div className="space-y-2 border-t border-amber-500/30 pt-4">
           <label
             htmlFor="development-scenario"
             className="text-sm font-semibold"

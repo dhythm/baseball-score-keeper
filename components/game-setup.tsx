@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGame } from "@/lib/game-context";
+import { createStandardGamePreset } from "@/lib/game-preset";
 import {
   generateId,
   getSelectableFieldingPositions,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { shouldShowDevelopmentTools } from "@/lib/development-mode";
 import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
+import { toast } from "sonner";
 
 const emptyTeam = (): Team => ({
   name: "",
@@ -35,39 +37,6 @@ const emptyTeam = (): Team => ({
   startingPitcherId: null,
   startingPitcherName: "",
 });
-
-/** Standard 9 positions (no DH) for sample rosters. */
-const SAMPLE_LINEUP_POSITIONS: FieldingPosition[] = [
-  "pitcher",
-  "catcher",
-  "first",
-  "second",
-  "third",
-  "short",
-  "left",
-  "center",
-  "right",
-];
-
-function buildSampleTeam(teamName: string, playerNamePrefix: string): Team {
-  const players: Player[] = SAMPLE_LINEUP_POSITIONS.map((position, i) => ({
-    id: generateId(),
-    name: `${playerNamePrefix}${i + 1}`,
-    order: i + 1,
-    position,
-  }));
-  return syncStartingPitcher({
-    name: teamName,
-    players,
-    startingPitcherId: null,
-    startingPitcherName: "",
-  });
-}
-
-const SAMPLE_PRESET = {
-  away: () => buildSampleTeam("イーグルス", "選手"),
-  home: () => buildSampleTeam("ライオンズ", "打者"),
-} as const;
 
 function TeamSetupForm({
   label,
@@ -573,8 +542,10 @@ export function GameSetup() {
   };
 
   const applySamplePreset = () => {
-    setAwayTeam(SAMPLE_PRESET.away());
-    setHomeTeam(SAMPLE_PRESET.home());
+    const preset = createStandardGamePreset(generateId);
+    setAwayTeam(preset.away);
+    setHomeTeam(preset.home);
+    toast.success("チーム1・チーム2の選手を設定しました");
   };
   const showDevelopmentTools = shouldShowDevelopmentTools();
 
@@ -598,9 +569,29 @@ export function GameSetup() {
             イニング数と両チームの選手を登録して試合を始めます。
           </p>
         </div>
-        {showDevelopmentTools && (
-          <DevelopmentScenarioPanel onApplySamplePreset={applySamplePreset} />
-        )}
+        <section
+          aria-labelledby="setup-preset-title"
+          className="space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
+        >
+          <div>
+            <h2 id="setup-preset-title" className="text-sm font-bold">
+              入力プリセット
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              チーム名と9人分の打順・守備位置をまとめて入力します。
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full"
+            onClick={applySamplePreset}
+          >
+            チーム1・チーム2（各9人）を設定
+          </Button>
+        </section>
+
+        {showDevelopmentTools && <DevelopmentScenarioPanel />}
 
         <Card className="gap-3 border-border py-4">
           <CardHeader className="px-4 py-0">

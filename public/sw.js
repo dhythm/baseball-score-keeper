@@ -1,9 +1,9 @@
 const CACHE_PREFIX = "baseball-scorebook-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/icon.svg",
+  "/favicon.png",
   "/icon-192.png",
   "/icon-512.png",
   "/apple-icon.png",

@@ -11,20 +11,7 @@ export const metadata: Metadata = {
   description:
     "草野球対応のリアルタイム野球スコアリングアプリ。試合中にベンチからスマホでスコアをつけられます。",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
+    icon: "/favicon.png",
     apple: "/apple-icon.png",
   },
 };

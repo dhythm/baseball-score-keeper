@@ -26,10 +26,7 @@ import { formatEventNotation } from "@/lib/domain/notation";
 import { RotateCcw, Edit, Share2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { toPersistedGame } from "@/lib/app-state/selectors";
-import {
-  exportGameAsJson,
-  exportGameAsText,
-} from "@/lib/export/game-log";
+import { exportGameAsJson, exportGameAsText } from "@/lib/export/game-log";
 import { getPitcherStats } from "@/lib/domain/pitching";
 import { GameHistory } from "@/components/game-history";
 import { FeedbackDialog } from "@/components/feedback-dialog";
@@ -166,10 +163,7 @@ function PitchingSummary({ game }: { game: AppGame }) {
       <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-2">
         {(["away", "home"] as const).map((side) => {
           const team = game.config.teams[side];
-          const roster = [
-            ...team.players,
-            ...(team.benchPlayers ?? []),
-          ];
+          const roster = [...team.players, ...(team.benchPlayers ?? [])];
           const pitchingLines = getPitcherStats(
             game.timeline,
             side,
@@ -185,9 +179,8 @@ function PitchingSummary({ game }: { game: AppGame }) {
                 const pitcherName =
                   stats.pitcherId === null
                     ? team.startingPitcherName || `${team.name} 先発`
-                    : roster.find(
-                        (player) => player.id === stats.pitcherId
-                      )?.name ?? stats.pitcherId;
+                    : (roster.find((player) => player.id === stats.pitcherId)
+                        ?.name ?? stats.pitcherId);
                 return (
                   <div
                     key={`${stats.pitcherId ?? "starter"}-${index}`}
@@ -312,9 +305,7 @@ export function GameResult() {
         <InningDetails game={game} />
         <GameHistory />
         <section className="rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
-          <h2 className="mb-3 text-sm font-bold text-foreground">
-            試合データ
-          </h2>
+          <h2 className="mb-3 text-sm font-bold text-foreground">試合データ</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Button variant="secondary" className="h-11" onClick={handleShare}>
               <Share2 className="mr-2 h-4 w-4" />

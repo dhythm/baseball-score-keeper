@@ -44,8 +44,7 @@ export function BaseRunningEditDialog({
   const [showDelete, setShowDelete] = useState(false);
 
   const event = eventId ? game.events.find((e) => e.id === eventId) : undefined;
-  const baseRun =
-    event?.kind === "baseRunning" ? event : undefined;
+  const baseRun = event?.kind === "baseRunning" ? event : undefined;
   const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
   const halfLabel =
@@ -64,17 +63,14 @@ export function BaseRunningEditDialog({
 
   const handleUpdate = (payload: BaseRunningEventResult) => {
     if (!eventId || !baseRun) return;
-    const result = updateEvent(
-      eventId,
-      {
-        ...baseRun,
-        type: payload.type,
-        movements: payload.movements,
-        ...(payload.rbiCreditBatterId
-          ? { rbiCreditBatterId: payload.rbiCreditBatterId }
-          : { rbiCreditBatterId: undefined }),
-      }
-    );
+    const result = updateEvent(eventId, {
+      ...baseRun,
+      type: payload.type,
+      movements: payload.movements,
+      ...(payload.rbiCreditBatterId
+        ? { rbiCreditBatterId: payload.rbiCreditBatterId }
+        : { rbiCreditBatterId: undefined }),
+    });
     if (!result.accepted) {
       toast.error(
         result.violations[0]

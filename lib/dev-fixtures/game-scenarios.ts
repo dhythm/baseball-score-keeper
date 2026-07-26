@@ -8,7 +8,7 @@ import type {
 } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 
-export interface DevGameScenarioExpectation {
+interface DevGameScenarioExpectation {
   score: Score;
   gameStatus: "live" | "finished";
   inning: number;
@@ -380,11 +380,7 @@ const dhPitchingChange: DevGameScenario = {
           outPlayerId: "home-starter",
           role: "pitcher",
         },
-        ...threeOuts("after-pitching-change", [
-          "away-1",
-          "away-2",
-          "away-3",
-        ]),
+        ...threeOuts("after-pitching-change", ["away-1", "away-2", "away-3"]),
       ],
       { home }
     );
@@ -742,7 +738,9 @@ export const DEVELOPMENT_GAME_SCENARIOS: readonly DevGameScenario[] = [
 ];
 
 export function buildDevGameScenario(id: string): PersistedGameV2 | null {
-  return DEVELOPMENT_GAME_SCENARIOS.find(
-    (scenario) => scenario.id === id
-  )?.createGame() ?? null;
+  return (
+    DEVELOPMENT_GAME_SCENARIOS.find(
+      (scenario) => scenario.id === id
+    )?.createGame() ?? null
+  );
 }

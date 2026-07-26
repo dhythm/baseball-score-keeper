@@ -3,10 +3,7 @@ import type { GameEvent, Violation } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 import type { AppGame, AppGameState, GameAction } from "./types";
 
-export function deriveGame(
-  game: PersistedGameV2,
-  manualEnded?: boolean
-): AppGame {
+function deriveGame(game: PersistedGameV2, manualEnded?: boolean): AppGame {
   const replayResult = replay(game.events, game.config);
   const inferredManualEnd =
     game.status === "finished" &&
@@ -87,9 +84,7 @@ export function evaluateEventUpdate(
   return {
     accepted: entry?.event.id === eventId && entry.applied,
     nextState,
-    violations: nextState.violations.filter(
-      (item) => item.eventId === eventId
-    ),
+    violations: nextState.violations.filter((item) => item.eventId === eventId),
   };
 }
 
@@ -122,11 +117,7 @@ export function gameReducer(
 
     case "UPDATE_EVENT": {
       if (!state) return null;
-      const result = evaluateEventUpdate(
-        state,
-        action.eventId,
-        action.event
-      );
+      const result = evaluateEventUpdate(state, action.eventId, action.event);
       return result?.accepted ? result.nextState : state;
     }
 
@@ -138,10 +129,7 @@ export function gameReducer(
       const events = state.events.filter(
         (event) => event.id !== action.eventId
       );
-      return deriveGame(
-        persistedInput(state, events),
-        state.manualEnded
-      );
+      return deriveGame(persistedInput(state, events), state.manualEnded);
     }
 
     case "UNDO_LAST_EVENT":

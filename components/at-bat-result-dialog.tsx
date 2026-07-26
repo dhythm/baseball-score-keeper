@@ -72,8 +72,7 @@ export function AtBatResultDialog({
     mode === "edit" && eventId
       ? game.events.find((e) => e.id === eventId)
       : undefined;
-  const atBat =
-    event?.kind === "atBat" ? event : undefined;
+  const atBat = event?.kind === "atBat" ? event : undefined;
   const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
   const halfLabel =
@@ -138,12 +137,12 @@ export function AtBatResultDialog({
       ? timelineEntry.outsBefore
       : game.currentState.outs;
 
-  const title =
-    mode === "edit" ? "打席結果の修正" : "打席結果の入力";
+  const title = mode === "edit" ? "打席結果の修正" : "打席結果の入力";
   const description =
     mode === "edit" && atBat ? (
       <>
-        {timelineEntry?.inning}回{halfLabel}の打席を変更します。ボタンだけで表記を選べます。
+        {timelineEntry?.inning}回{halfLabel}
+        の打席を変更します。ボタンだけで表記を選べます。
       </>
     ) : (
       <>種類を選び、続いて打球の方向や守備位置を選んでください。</>
@@ -172,7 +171,9 @@ export function AtBatResultDialog({
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
                 現在: {formatAtBatResult(atBat.result, atBat.battedBall)}
                 {atBat.note ? (
-                  <span className="text-muted-foreground">（{atBat.note}）</span>
+                  <span className="text-muted-foreground">
+                    （{atBat.note}）
+                  </span>
                 ) : null}
               </div>
             )}

@@ -26,8 +26,7 @@ export function getSelectableFieldingPositions(
   return FIELDING_POSITIONS.filter((position) => {
     if (currentPosition === position || position === "dh") return true;
     return !players.some(
-      (player) =>
-        player.id !== excludePlayerId && player.position === position
+      (player) => player.id !== excludePlayerId && player.position === position
     );
   });
 }
@@ -137,11 +136,11 @@ export function isTeamRosterValid(team: Team): boolean {
 
   return Boolean(
     team.startingPitcherId &&
-      (team.benchPlayers ?? []).some(
-        (player) =>
-          player.id === team.startingPitcherId &&
-          player.position === "pitcher" &&
-          player.name.trim() === startingPitcherName
-      )
+    (team.benchPlayers ?? []).some(
+      (player) =>
+        player.id === team.startingPitcherId &&
+        player.position === "pitcher" &&
+        player.name.trim() === startingPitcherName
+    )
   );
 }

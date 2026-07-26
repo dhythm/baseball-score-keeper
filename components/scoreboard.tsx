@@ -4,10 +4,7 @@ import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { AppGame } from "@/lib/app-state/types";
 import { getEffectiveInningCount } from "@/lib/app-state/selectors";
-import {
-  getInningScores,
-  getTeamStats,
-} from "@/lib/domain/stats";
+import { getInningScores, getTeamStats } from "@/lib/domain/stats";
 
 interface ScoreboardProps {
   game: AppGame;
@@ -45,10 +42,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
           </div>
         </div>
 
-        <div
-          ref={scrollRef}
-          className="min-w-0 overflow-x-auto scrollbar-hide"
-        >
+        <div ref={scrollRef} className="min-w-0 overflow-x-auto scrollbar-hide">
           <div className="inline-flex">
             {Array.from({ length: inningCount }, (_, i) => {
               const inning = i + 1;

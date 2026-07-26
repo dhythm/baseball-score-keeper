@@ -33,8 +33,7 @@ export function SubstitutionSheet({
   game: AppGame;
   onSubmit: (event: SubstitutionEvent) => void;
 }) {
-  const offense: TeamSide =
-    game.currentState.half === "top" ? "away" : "home";
+  const offense: TeamSide = game.currentState.half === "top" ? "away" : "home";
   const [team, setTeam] = useState<TeamSide>(offense);
   const [role, setRole] = useState<SubstitutionRole>("pinchHitter");
   const [outPlayerId, setOutPlayerId] = useState("");
@@ -68,19 +67,20 @@ export function SubstitutionSheet({
     return activeIds.includes(player.id);
   });
   const inCandidates = roster.filter(
-    (player) =>
-      !activeIds.includes(player.id) && player.id !== activePitcherId
+    (player) => !activeIds.includes(player.id) && player.id !== activePitcherId
   );
 
   const handleSubmit = () => {
     if (!outPlayerId || !inPlayerId) return;
-    onSubmit(createSubstitutionEvent({
-      id: generateId(),
-      team,
-      role,
-      outPlayerId,
-      inPlayerId,
-    }));
+    onSubmit(
+      createSubstitutionEvent({
+        id: generateId(),
+        team,
+        role,
+        outPlayerId,
+        inPlayerId,
+      })
+    );
   };
 
   return (

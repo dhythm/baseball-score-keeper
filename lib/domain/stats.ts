@@ -102,14 +102,8 @@ export function getInningScores(
   return {
     away,
     home,
-    awayTotal: away.reduce<number>(
-      (sum, score) => sum + (score ?? 0),
-      0
-    ),
-    homeTotal: home.reduce<number>(
-      (sum, score) => sum + (score ?? 0),
-      0
-    ),
+    awayTotal: away.reduce<number>((sum, score) => sum + (score ?? 0), 0),
+    homeTotal: home.reduce<number>((sum, score) => sum + (score ?? 0), 0),
   };
 }
 
@@ -211,19 +205,6 @@ export function getPlayerAppearances(
 
 function rbiCreditBatterId(event: BaseRunningEvent): string | undefined {
   return event.rbiCreditBatterId;
-}
-
-export function getPlayerStats(
-  timeline: readonly TimelineEntry[],
-  playerId: string
-): Pick<PlayerBattingStats, "atBats" | "hits" | "rbi" | "runs"> {
-  const stats = getPlayerBattingStats(timeline, playerId);
-  return {
-    atBats: stats.atBats,
-    hits: stats.hits,
-    rbi: stats.rbi,
-    runs: stats.runs,
-  };
 }
 
 export function formatBattingAverage(hits: number, atBats: number): string {

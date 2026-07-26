@@ -7,11 +7,7 @@ export function getPlayerInningEntries(
   inning: number
 ): TimelineEntry[] {
   return timeline.filter((entry) => {
-    if (
-      !entry.applied ||
-      entry.team !== teamSide ||
-      entry.inning !== inning
-    ) {
+    if (!entry.applied || entry.team !== teamSide || entry.inning !== inning) {
       return false;
     }
     if (entry.event.kind === "atBat") {
@@ -29,4 +25,3 @@ export function getPlayerInningEntries(
     );
   });
 }
-

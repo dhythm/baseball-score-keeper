@@ -16,7 +16,7 @@ import type {
 export const SCHEMA_VERSION = 2 as const;
 export const DEFAULT_GAME_STORAGE_KEY = "baseball-scorer-game";
 export const DEFAULT_GAME_HISTORY_STORAGE_KEY = "baseball-scorer-games";
-export const MAX_STORED_GAMES = 10;
+const MAX_STORED_GAMES = 10;
 
 export interface PersistedGameV2 {
   id: string;
@@ -31,7 +31,7 @@ export interface StorageEnvelopeV2 {
   game: PersistedGameV2;
 }
 
-export interface GameHistoryEnvelopeV2 {
+interface GameHistoryEnvelopeV2 {
   schemaVersion: typeof SCHEMA_VERSION;
   games: PersistedGameV2[];
 }
@@ -58,7 +58,7 @@ export interface GameRepository {
   clear(): void;
 }
 
-export class StoredGameFormatError extends Error {
+class StoredGameFormatError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "StoredGameFormatError";
@@ -99,7 +99,9 @@ const POSITION_FROM_NOTATION: Record<string, FieldingPosition> = {
   右: "right",
 };
 
-function migrateTeam(team: LegacyGame["teams"]["away"]): GameConfig["teams"]["away"] {
+function migrateTeam(
+  team: LegacyGame["teams"]["away"]
+): GameConfig["teams"]["away"] {
   return {
     name: team.name,
     players: team.players.map((player) => ({
@@ -294,48 +296,44 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
     return false;
   }
   return value.events.every((event) => {
-      if (
-        !isRecord(event) ||
-        typeof event.id !== "string"
-      ) {
-        return false;
-      }
-      if (event.kind === "atBat") {
-        return (
-          typeof event.batterId === "string" &&
-          typeof event.result === "string" &&
-          AT_BAT_RESULTS.has(event.result) &&
-          isRunnerMovementList(event.movements) &&
-          (event.note === undefined || typeof event.note === "string") &&
-          (event.battedBall === undefined ||
-            isStoredBattedBall(event.battedBall))
-        );
-      }
-      if (event.kind === "baseRunning") {
-        return (
-          typeof event.type === "string" &&
-          BASE_RUNNING_TYPES.has(event.type) &&
-          isRunnerMovementList(event.movements) &&
-          (event.rbiCreditBatterId === undefined ||
-            typeof event.rbiCreditBatterId === "string")
-        );
-      }
-      if (event.kind === "substitution") {
-        return (
-          ["away", "home"].includes(String(event.team)) &&
-          typeof event.inPlayerId === "string" &&
-          typeof event.outPlayerId === "string" &&
-          ["pinchHitter", "pinchRunner", "fielder", "pitcher"].includes(
-            String(event.role)
-          )
-        );
-      }
+    if (!isRecord(event) || typeof event.id !== "string") {
+      return false;
+    }
+    if (event.kind === "atBat") {
       return (
-        event.kind === "gameControl" &&
-        event.action === "endGame" &&
-        (event.reason === undefined || typeof event.reason === "string")
+        typeof event.batterId === "string" &&
+        typeof event.result === "string" &&
+        AT_BAT_RESULTS.has(event.result) &&
+        isRunnerMovementList(event.movements) &&
+        (event.note === undefined || typeof event.note === "string") &&
+        (event.battedBall === undefined || isStoredBattedBall(event.battedBall))
       );
-    });
+    }
+    if (event.kind === "baseRunning") {
+      return (
+        typeof event.type === "string" &&
+        BASE_RUNNING_TYPES.has(event.type) &&
+        isRunnerMovementList(event.movements) &&
+        (event.rbiCreditBatterId === undefined ||
+          typeof event.rbiCreditBatterId === "string")
+      );
+    }
+    if (event.kind === "substitution") {
+      return (
+        ["away", "home"].includes(String(event.team)) &&
+        typeof event.inPlayerId === "string" &&
+        typeof event.outPlayerId === "string" &&
+        ["pinchHitter", "pinchRunner", "fielder", "pitcher"].includes(
+          String(event.role)
+        )
+      );
+    }
+    return (
+      event.kind === "gameControl" &&
+      event.action === "endGame" &&
+      (event.reason === undefined || typeof event.reason === "string")
+    );
+  });
 }
 
 const FIELDING_POSITIONS = new Set([
@@ -506,16 +504,7 @@ export function createGameStorage(
   };
 }
 
-export function createBrowserGameStorage(
-  key = DEFAULT_GAME_STORAGE_KEY
-): GameStorage {
-  if (typeof window === "undefined") {
-    throw new Error("localStorage is unavailable outside the browser");
-  }
-  return createGameStorage(window.localStorage, key);
-}
-
-export function serializeGameHistory(games: PersistedGameV2[]): string {
+function serializeGameHistory(games: PersistedGameV2[]): string {
   const envelope: GameHistoryEnvelopeV2 = {
     schemaVersion: SCHEMA_VERSION,
     games,
@@ -523,7 +512,7 @@ export function serializeGameHistory(games: PersistedGameV2[]): string {
   return JSON.stringify(envelope);
 }
 
-export function parseGameHistory(serialized: string): PersistedGameV2[] {
+function parseGameHistory(serialized: string): PersistedGameV2[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(serialized);
@@ -542,9 +531,7 @@ export function parseGameHistory(serialized: string): PersistedGameV2[] {
   return parsed.games;
 }
 
-function newestFirst(
-  games: readonly PersistedGameV2[]
-): PersistedGameV2[] {
+function newestFirst(games: readonly PersistedGameV2[]): PersistedGameV2[] {
   return [...games].sort(
     (left, right) =>
       right.date.localeCompare(left.date) || right.id.localeCompare(left.id)

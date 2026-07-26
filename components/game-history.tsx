@@ -133,7 +133,9 @@ export function GameHistory() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>この試合を履歴から削除しますか？</AlertDialogTitle>
+            <AlertDialogTitle>
+              この試合を履歴から削除しますか？
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteGame
                 ? `${deleteGame.config.teams.away.name} 対 ${deleteGame.config.teams.home.name}（${deleteGame.date.slice(0, 10)}）を削除します。`

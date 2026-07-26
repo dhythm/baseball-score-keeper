@@ -78,11 +78,15 @@ pnpm dev
 品質確認:
 
 ```bash
+pnpm format:check
 pnpm lint
-pnpm exec tsc --noEmit
+pnpm typecheck
+pnpm knip
 pnpm test
 pnpm build
 ```
+
+すべてをまとめて確認する場合は `pnpm check` を実行します。コードをPrettierで整形する場合は `pnpm format` を使用してください。Knipでは、ブラウザから直接読み込まれる `public/sw.js` のみを実行時ファイルとして検査対象外にしています。
 
 ## 構成
 
@@ -105,3 +109,5 @@ public/sw.js          オフラインキャッシュ
 - Radix UI
 - Vitest
 - ESLint
+- Prettier
+- Knip

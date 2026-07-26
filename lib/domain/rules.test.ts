@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunnerMovement } from "./types";
-import {
-  getDefaultMovements,
-  validateMovementShape,
-} from "./rules";
+import { getDefaultMovements, validateMovementShape } from "./rules";
 
 function movement(
   playerId: string,
@@ -205,10 +202,7 @@ describe("validateMovementShape", () => {
     const violations = validateMovementShape(
       { first: "r1", second: null, third: null },
       "batter",
-      [
-        movement("r1", "first", "second"),
-        movement("r1", "first", "third"),
-      ]
+      [movement("r1", "first", "second"), movement("r1", "first", "third")]
     );
 
     expect(violations.map((violation) => violation.code)).toEqual(
@@ -223,10 +217,7 @@ describe("validateMovementShape", () => {
     const violations = validateMovementShape(
       { first: "r1", second: "r2", third: null },
       "batter",
-      [
-        movement("r2", "second", "third"),
-        movement("r1", "first", "third"),
-      ]
+      [movement("r2", "second", "third"), movement("r1", "first", "third")]
     );
 
     expect(violations.map((violation) => violation.code)).toContain(

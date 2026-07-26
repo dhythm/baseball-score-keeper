@@ -86,7 +86,7 @@ function TeamSetupForm({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const lineupPitcherCount = team.players.filter(
-    (p) => p.position === "pitcher",
+    (p) => p.position === "pitcher"
   ).length;
 
   const addPlayer = () => {
@@ -136,7 +136,7 @@ function TeamSetupForm({
     onTeamChange({
       ...team,
       benchPlayers: (team.benchPlayers ?? []).filter(
-        (player) => player.id !== id,
+        (player) => player.id !== id
       ),
     });
   };
@@ -174,17 +174,17 @@ function TeamSetupForm({
 
   const updatePlayerPosition = (
     playerId: string,
-    position: FieldingPosition,
+    position: FieldingPosition
   ) => {
     const players = team.players.map((p) =>
-      p.id === playerId ? { ...p, position } : p,
+      p.id === playerId ? { ...p, position } : p
     );
     onTeamChange(syncStartingPitcher({ ...team, players }));
   };
 
   const updatePlayerName = (playerId: string, name: string) => {
     const players = team.players.map((p) =>
-      p.id === playerId ? { ...p, name } : p,
+      p.id === playerId ? { ...p, name } : p
     );
     let next: Team = { ...team, players };
     if (team.startingPitcherId === playerId) {
@@ -198,14 +198,14 @@ function TeamSetupForm({
     if (
       team.startingPitcherId &&
       team.players.some(
-        (p) => p.id === team.startingPitcherId && p.position === "pitcher",
+        (p) => p.id === team.startingPitcherId && p.position === "pitcher"
       )
     ) {
       onTeamChange({
         ...team,
         startingPitcherName: value,
         players: team.players.map((p) =>
-          p.id === team.startingPitcherId ? { ...p, name: value } : p,
+          p.id === team.startingPitcherId ? { ...p, name: value } : p
         ),
       });
       return;
@@ -216,7 +216,7 @@ function TeamSetupForm({
   const newRowSelectable = getSelectableFieldingPositions(
     team.players,
     null,
-    newPlayerPosition,
+    newPlayerPosition
   );
 
   return (
@@ -334,7 +334,7 @@ function TeamSetupForm({
               const rowSelectable = getSelectableFieldingPositions(
                 team.players,
                 player.id,
-                player.position,
+                player.position
               );
               return (
                 <li
@@ -364,7 +364,7 @@ function TeamSetupForm({
                         const payload = String(index);
                         e.dataTransfer.setData(
                           "application/x-player-index",
-                          payload,
+                          payload
                         );
                         e.dataTransfer.setData("text/plain", payload);
                         e.currentTarget
@@ -416,7 +416,7 @@ function TeamSetupForm({
                         size="sm"
                         className={cn(
                           "h-11 w-[7.5rem] shrink-0 bg-background px-2 text-xs",
-                          draggingIndex !== null && "pointer-events-none",
+                          draggingIndex !== null && "pointer-events-none"
                         )}
                         aria-label={`打順${player.order}の守備位置`}
                       >
@@ -433,7 +433,7 @@ function TeamSetupForm({
                     <div
                       className={cn(
                         "flex gap-1 shrink-0",
-                        draggingIndex !== null && "pointer-events-none",
+                        draggingIndex !== null && "pointer-events-none"
                       )}
                     >
                       <Button
@@ -599,9 +599,7 @@ export function GameSetup() {
           </p>
         </div>
         {showDevelopmentTools && (
-          <DevelopmentScenarioPanel
-            onApplySamplePreset={applySamplePreset}
-          />
+          <DevelopmentScenarioPanel onApplySamplePreset={applySamplePreset} />
         )}
 
         <Card className="gap-3 border-border py-4">

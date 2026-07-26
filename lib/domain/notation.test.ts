@@ -44,16 +44,12 @@ describe("at-bat notation", () => {
     const battedBall = { position: "short", type: "ground" } as const;
 
     expect(formatAtBatNotation(atBat("single", battedBall))).toBe("遊安");
-    expect(formatAtBatNotation(atBat("groundOut", battedBall))).toBe(
-      "遊ゴロ"
-    );
+    expect(formatAtBatNotation(atBat("groundOut", battedBall))).toBe("遊ゴロ");
   });
 
   it("includes the structured fielding position for extra-base hits", () => {
     expect(
-      formatAtBatNotation(
-        atBat("double", { position: "right", type: "liner" })
-      )
+      formatAtBatNotation(atBat("double", { position: "right", type: "liner" }))
     ).toBe("右2");
     expect(
       formatAtBatNotation(
@@ -61,9 +57,7 @@ describe("at-bat notation", () => {
       )
     ).toBe("中3");
     expect(
-      formatAtBatNotation(
-        atBat("homerun", { position: "left", type: "fly" })
-      )
+      formatAtBatNotation(atBat("homerun", { position: "left", type: "fly" }))
     ).toBe("左本");
   });
 
@@ -74,9 +68,7 @@ describe("at-bat notation", () => {
       )
     ).toBe("中犠飛");
     expect(
-      formatAtBatNotation(
-        atBat("error", { position: "short", type: "ground" })
-      )
+      formatAtBatNotation(atBat("error", { position: "short", type: "ground" }))
     ).toBe("遊失");
   });
 });
@@ -142,12 +134,12 @@ describe("game-management notation", () => {
     expect(
       formatSubstitutionNotation({ ...baseEvent, role: "pinchRunner" })
     ).toBe("代走");
-    expect(
-      formatSubstitutionNotation({ ...baseEvent, role: "pitcher" })
-    ).toBe("投手交代");
-    expect(
-      formatSubstitutionNotation({ ...baseEvent, role: "fielder" })
-    ).toBe("守備交代");
+    expect(formatSubstitutionNotation({ ...baseEvent, role: "pitcher" })).toBe(
+      "投手交代"
+    );
+    expect(formatSubstitutionNotation({ ...baseEvent, role: "fielder" })).toBe(
+      "守備交代"
+    );
   });
 
   it("includes an optional manual game-end reason", () => {

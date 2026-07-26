@@ -9,9 +9,9 @@ import {
 describe("development game scenarios", () => {
   it("offers uniquely identified, documented scenarios", () => {
     expect(DEVELOPMENT_GAME_SCENARIOS).toHaveLength(8);
-    expect(
-      new Set(DEVELOPMENT_GAME_SCENARIOS.map(({ id }) => id)).size
-    ).toBe(8);
+    expect(new Set(DEVELOPMENT_GAME_SCENARIOS.map(({ id }) => id)).size).toBe(
+      8
+    );
     for (const scenario of DEVELOPMENT_GAME_SCENARIOS) {
       expect(scenario.title.trim()).not.toBe("");
       expect(scenario.description.trim()).not.toBe("");

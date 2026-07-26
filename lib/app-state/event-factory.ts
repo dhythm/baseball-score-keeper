@@ -94,11 +94,7 @@ function parseBattedBall(
   ) {
     return { position, type: "ground" };
   }
-  if (
-    result === "double" ||
-    result === "triple" ||
-    result === "homerun"
-  ) {
+  if (result === "double" || result === "triple" || result === "homerun") {
     return { position, type: "liner" };
   }
   return undefined;

@@ -11,7 +11,9 @@ interface DiamondFieldProps {
 
 export function DiamondField({ runners, game }: DiamondFieldProps) {
   const firstRunner = runners.first ? getPlayerById(game, runners.first) : null;
-  const secondRunner = runners.second ? getPlayerById(game, runners.second) : null;
+  const secondRunner = runners.second
+    ? getPlayerById(game, runners.second)
+    : null;
   const thirdRunner = runners.third ? getPlayerById(game, runners.third) : null;
 
   return (

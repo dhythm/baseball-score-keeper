@@ -135,9 +135,7 @@ describe("management event factories", () => {
         role: "pitcher",
       })
     ).toMatchObject({ id: "sub", kind: "substitution", role: "pitcher" });
-    expect(
-      createGameControlEvent({ id: "end", reason: "時間切れ" })
-    ).toEqual({
+    expect(createGameControlEvent({ id: "end", reason: "時間切れ" })).toEqual({
       id: "end",
       kind: "gameControl",
       action: "endGame",

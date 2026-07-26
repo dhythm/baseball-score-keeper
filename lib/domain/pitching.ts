@@ -25,7 +25,7 @@ const strikeoutResults = new Set([
   "uncaughtThirdStrike",
 ]);
 
-export function formatInningsPitched(outs: number): string {
+function formatInningsPitched(outs: number): string {
   return `${Math.floor(outs / 3)}.${outs % 3}`;
 }
 
@@ -77,10 +77,7 @@ export function getPitcherStats(
 ): PitcherStats[] {
   const battingTeam: TeamSide = fieldingTeam === "away" ? "home" : "away";
   const lines = new Map<string | null, PitcherStats>();
-  lines.set(
-    startingPitcherId,
-    emptyPitcherStats(startingPitcherId, "starter")
-  );
+  lines.set(startingPitcherId, emptyPitcherStats(startingPitcherId, "starter"));
   let currentPitcherId = startingPitcherId;
 
   for (const entry of timeline) {

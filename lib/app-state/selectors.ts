@@ -2,19 +2,20 @@ import type { Player, TeamSide, TimelineEntry } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 import type { AppGame } from "./types";
 
-export function getCurrentTeamSide(game: AppGame): TeamSide {
+function getCurrentTeamSide(game: AppGame): TeamSide {
   return game.currentState.half === "top" ? "away" : "home";
 }
 
-export function getPlayerById(
-  game: AppGame,
-  playerId: string
-): Player | null {
+export function getPlayerById(game: AppGame, playerId: string): Player | null {
   return (
     game.config.teams.away.players.find((player) => player.id === playerId) ??
-    game.config.teams.away.benchPlayers?.find((player) => player.id === playerId) ??
+    game.config.teams.away.benchPlayers?.find(
+      (player) => player.id === playerId
+    ) ??
     game.config.teams.home.players.find((player) => player.id === playerId) ??
-    game.config.teams.home.benchPlayers?.find((player) => player.id === playerId) ??
+    game.config.teams.home.benchPlayers?.find(
+      (player) => player.id === playerId
+    ) ??
     null
   );
 }
@@ -40,8 +41,7 @@ export function getNextBatter(game: AppGame): Player | null {
   const activePlayerIds = game.currentState.activeLineup[teamSide];
   if (activePlayerIds.length === 0) return null;
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
-  const playerId =
-    activePlayerIds[(batterIndex + 1) % activePlayerIds.length];
+  const playerId = activePlayerIds[(batterIndex + 1) % activePlayerIds.length];
   return roster.find((player) => player.id === playerId) ?? null;
 }
 
@@ -49,9 +49,7 @@ export function getTimelineEntry(
   game: AppGame,
   eventId: string
 ): TimelineEntry | null {
-  return (
-    game.timeline.find((entry) => entry.event.id === eventId) ?? null
-  );
+  return game.timeline.find((entry) => entry.event.id === eventId) ?? null;
 }
 
 export function getEffectiveInningCount(game: AppGame): number {

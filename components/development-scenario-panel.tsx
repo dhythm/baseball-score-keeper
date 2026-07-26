@@ -73,7 +73,10 @@ export function DevelopmentScenarioPanel({
         </div>
 
         <div className="space-y-2 border-t border-amber-500/30 pt-4">
-          <label htmlFor="development-scenario" className="text-sm font-semibold">
+          <label
+            htmlFor="development-scenario"
+            className="text-sm font-semibold"
+          >
             進行済みの試合パターン
           </label>
           <Select value={scenarioId} onValueChange={setScenarioId}>

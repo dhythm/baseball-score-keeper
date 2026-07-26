@@ -20,19 +20,13 @@ describe("syncNonLineupStartingPitcher", () => {
   it("keeps a DH starter in the roster with a stable player id", () => {
     const team = {
       name: "Home",
-      players: [
-        { id: "dh", name: "DH", order: 1, position: "dh" as const },
-      ],
+      players: [{ id: "dh", name: "DH", order: 1, position: "dh" as const }],
       benchPlayers: [],
       startingPitcherId: null,
       startingPitcherName: "",
     };
 
-    const created = syncNonLineupStartingPitcher(
-      team,
-      "Starter",
-      "starter-id"
-    );
+    const created = syncNonLineupStartingPitcher(team, "Starter", "starter-id");
     const renamed = syncNonLineupStartingPitcher(
       created,
       "Renamed starter",
@@ -51,9 +45,7 @@ describe("syncNonLineupStartingPitcher", () => {
   it("removes the linked non-lineup starter when its name is cleared", () => {
     const team = {
       name: "Home",
-      players: [
-        { id: "dh", name: "DH", order: 1, position: "dh" as const },
-      ],
+      players: [{ id: "dh", name: "DH", order: 1, position: "dh" as const }],
       benchPlayers: [
         {
           id: "starter-id",
@@ -66,9 +58,7 @@ describe("syncNonLineupStartingPitcher", () => {
       startingPitcherName: "Starter",
     };
 
-    expect(
-      syncNonLineupStartingPitcher(team, "", "unused-id")
-    ).toMatchObject({
+    expect(syncNonLineupStartingPitcher(team, "", "unused-id")).toMatchObject({
       startingPitcherId: null,
       startingPitcherName: "",
       benchPlayers: [],

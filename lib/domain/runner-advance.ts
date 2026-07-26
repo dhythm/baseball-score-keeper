@@ -28,8 +28,7 @@ export function initializeRbiByPlayerId(
         movement.to === runner.to
     );
     rbi[runner.playerId] =
-      initialMovement?.isRBI ??
-      getDefault(result, runner.from, runner.to);
+      initialMovement?.isRBI ?? getDefault(result, runner.from, runner.to);
   }
   return rbi;
 }

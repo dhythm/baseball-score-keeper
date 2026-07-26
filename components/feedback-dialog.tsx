@@ -15,10 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import {
-  FEEDBACK_ACCOUNT,
-  FEEDBACK_PROFILE_URL,
-} from "@/lib/feedback-contact";
+import { FEEDBACK_ACCOUNT, FEEDBACK_PROFILE_URL } from "@/lib/feedback-contact";
 
 export function FeedbackDialog({ className }: { className?: string }) {
   return (

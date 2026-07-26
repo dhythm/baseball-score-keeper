@@ -27,7 +27,10 @@ interface GameContextValue {
     accepted: boolean;
     violations: Violation[];
   };
-  updateEvent: (eventId: string, event: GameEvent) => {
+  updateEvent: (
+    eventId: string,
+    event: GameEvent
+  ) => {
     accepted: boolean;
     violations: Violation[];
   };

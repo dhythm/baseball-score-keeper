@@ -7,7 +7,7 @@ import type {
 } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 
-export type AppGameStatus = "live" | "finished";
+type AppGameStatus = "live" | "finished";
 
 /**
  * In-memory game view.

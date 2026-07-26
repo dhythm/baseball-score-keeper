@@ -29,9 +29,15 @@ function defaultRbiWhenScoring(
   if (to !== "home") return false;
   if (from === "batter" && result === "homerun") return true;
   if (from === "batter") return false;
-  return ["single", "double", "triple", "homerun", "sacrifice", "walk", "hitByPitch"].includes(
-    result
-  );
+  return [
+    "single",
+    "double",
+    "triple",
+    "homerun",
+    "sacrifice",
+    "walk",
+    "hitByPitch",
+  ].includes(result);
 }
 
 interface RunnerAdvanceSheetProps {
@@ -40,7 +46,11 @@ interface RunnerAdvanceSheetProps {
   detail?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (movements: RunnerMovement[], outsInPlay: number, runsScored: number) => void;
+  onConfirm: (
+    movements: RunnerMovement[],
+    outsInPlay: number,
+    runsScored: number
+  ) => void;
   context?: {
     runners: Runners;
     outs: number;
@@ -83,17 +93,12 @@ export function RunnerAdvanceSheet({
       currentBatter.id,
       outs
     );
-  }, [
-    result,
-    detail,
-    runners,
-    currentBatter,
-    outs,
-    initialMovementsOverride,
-  ]);
+  }, [result, detail, runners, currentBatter, outs, initialMovementsOverride]);
 
   const [runnerStates, setRunnerStates] = useState<RunnerState[]>([]);
-  const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>({});
+  const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>(
+    {}
+  );
 
   useEffect(() => {
     if (!open || !currentBatter) return;
@@ -186,14 +191,17 @@ export function RunnerAdvanceSheet({
     setRbiByPlayerId((prev) => ({ ...prev, [playerId]: value }));
   };
 
-  const getDestinationOptions = (from: "batter" | Base): { value: Destination; label: string }[] => {
+  const getDestinationOptions = (
+    from: "batter" | Base
+  ): { value: Destination; label: string }[] => {
     const options: { value: Destination; label: string }[] = [];
 
     if (from === "batter") {
       options.push({ value: "first", label: "1塁" });
       if (result === "double") options.push({ value: "second", label: "2塁" });
       if (result === "triple") options.push({ value: "third", label: "3塁" });
-      if (result === "homerun") options.push({ value: "home", label: "ホーム" });
+      if (result === "homerun")
+        options.push({ value: "home", label: "ホーム" });
       options.push({ value: "out", label: "アウト" });
     } else {
       if (from === "first") {
@@ -244,7 +252,11 @@ export function RunnerAdvanceSheet({
     };
 
     for (const runner of runnerStates) {
-      if (runner.to === "first" || runner.to === "second" || runner.to === "third") {
+      if (
+        runner.to === "first" ||
+        runner.to === "second" ||
+        runner.to === "third"
+      ) {
         occupiedBases[runner.to].push(runner.name);
       }
     }
@@ -252,7 +264,8 @@ export function RunnerAdvanceSheet({
     const duplicates: string[] = [];
     for (const [base, names] of Object.entries(occupiedBases)) {
       if (names.length > 1) {
-        const baseLabel = base === "first" ? "1塁" : base === "second" ? "2塁" : "3塁";
+        const baseLabel =
+          base === "first" ? "1塁" : base === "second" ? "2塁" : "3塁";
         duplicates.push(`${baseLabel}に${names.join("と")}が重複`);
       }
     }
@@ -271,7 +284,9 @@ export function RunnerAdvanceSheet({
         if (r.from === "batter" && result === "homerun") {
           isRBI = true;
         } else {
-          isRBI = rbiByPlayerId[r.playerId] ?? defaultRbiWhenScoring(result, r.from, r.to);
+          isRBI =
+            rbiByPlayerId[r.playerId] ??
+            defaultRbiWhenScoring(result, r.from, r.to);
         }
       }
       return {
@@ -336,35 +351,44 @@ export function RunnerAdvanceSheet({
                   size="lg"
                   value={runner.to}
                   onValueChange={(value) => {
-                    if (value) updateRunnerDestination(runner.playerId, value as Destination);
+                    if (value)
+                      updateRunnerDestination(
+                        runner.playerId,
+                        value as Destination
+                      );
                   }}
                   className="w-full justify-start"
                 >
-                  {getDestinationOptions(runner.from).map(({ value, label }) => (
-                    <ToggleGroupItem
-                      key={value}
-                      value={value}
-                      className="text-sm font-semibold"
-                    >
-                      {label}
-                    </ToggleGroupItem>
-                  ))}
+                  {getDestinationOptions(runner.from).map(
+                    ({ value, label }) => (
+                      <ToggleGroupItem
+                        key={value}
+                        value={value}
+                        className="text-sm font-semibold"
+                      >
+                        {label}
+                      </ToggleGroupItem>
+                    )
+                  )}
                 </ToggleGroup>
-                {runner.to === "home" && !(runner.from === "batter" && result === "homerun") && (
-                  <div className="flex items-start gap-2 pt-1">
-                    <Checkbox
-                      id={`rbi-${runner.playerId}`}
-                      checked={rbiByPlayerId[runner.playerId] ?? false}
-                      onCheckedChange={(v) => setRbiForRunner(runner.playerId, !!v)}
-                    />
-                    <Label
-                      htmlFor={`rbi-${runner.playerId}`}
-                      className="cursor-pointer text-xs font-normal leading-snug text-muted-foreground"
-                    >
-                      この得点を打者の打点に含める
-                    </Label>
-                  </div>
-                )}
+                {runner.to === "home" &&
+                  !(runner.from === "batter" && result === "homerun") && (
+                    <div className="flex items-start gap-2 pt-1">
+                      <Checkbox
+                        id={`rbi-${runner.playerId}`}
+                        checked={rbiByPlayerId[runner.playerId] ?? false}
+                        onCheckedChange={(v) =>
+                          setRbiForRunner(runner.playerId, !!v)
+                        }
+                      />
+                      <Label
+                        htmlFor={`rbi-${runner.playerId}`}
+                        className="cursor-pointer text-xs font-normal leading-snug text-muted-foreground"
+                      >
+                        この得点を打者の打点に含める
+                      </Label>
+                    </div>
+                  )}
               </div>
             ))}
           </div>

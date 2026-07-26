@@ -47,9 +47,7 @@ export function exportGameAsText(game: PersistedGameV2): string {
           : event.kind === "substitution"
             ? event.inPlayerId
             : undefined;
-    const actor = actorId
-      ? playerNameById.get(actorId) ?? actorId
-      : "走者";
+    const actor = actorId ? (playerNameById.get(actorId) ?? actorId) : "走者";
     const note =
       event.kind === "atBat" && event.note ? `（${event.note}）` : "";
     const situation =

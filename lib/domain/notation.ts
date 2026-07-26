@@ -12,7 +12,7 @@ import type {
   SubstitutionEvent,
 } from "./types";
 
-export type LegacyAtBatResult = "strikeout";
+type LegacyAtBatResult = "strikeout";
 export type NotationAtBatResult = AtBatResult | LegacyAtBatResult;
 
 const POSITION_SHORT: Record<FieldingPosition, string> = {
@@ -101,8 +101,7 @@ function destinationLabel(destination: RunnerDestination): string {
 }
 
 function movementLabel(movement: RunnerMovement): string {
-  const from =
-    movement.from === "batter" ? "打" : BASE_LABEL[movement.from];
+  const from = movement.from === "batter" ? "打" : BASE_LABEL[movement.from];
   return `${from}→${destinationLabel(movement.to)}`;
 }
 

@@ -1,6 +1,6 @@
-export type GameStatus = "setup" | "live" | "finished";
-export type Half = "top" | "bottom";
-export type TeamSide = "away" | "home";
+type GameStatus = "setup" | "live" | "finished";
+type Half = "top" | "bottom";
+type TeamSide = "away" | "home";
 export type Base = "first" | "second" | "third";
 
 export type AtBatResult =
@@ -25,13 +25,8 @@ export type AtBatResult =
   | "fieldersChoice"
   | "interference";
 
-export type BaseRunningType =
-  | "steal"
-  | "caughtStealing"
-  | "wildPitch"
-  | "passedBall"
-  | "pickOff"
-  | "balk";
+type BaseRunningType =
+  "steal" | "caughtStealing" | "wildPitch" | "passedBall" | "pickOff" | "balk";
 
 /** Defensive position keys (English). */
 export type FieldingPosition =
@@ -65,7 +60,7 @@ export interface Team {
   startingPitcherName?: string;
 }
 
-export interface RunnerMovement {
+interface RunnerMovement {
   playerId: string;
   from: "batter" | Base;
   to: Base | "home" | "out";
@@ -90,13 +85,13 @@ export interface GameEvent {
   timestamp: string;
 }
 
-export interface Runners {
+interface Runners {
   first: string | null;
   second: string | null;
   third: string | null;
 }
 
-export interface GameState {
+interface GameState {
   inning: number;
   half: Half;
   outs: number;
@@ -138,25 +133,6 @@ export const RESULT_LABELS: Record<AtBatResult, string> = {
   interference: "打撃妨害",
 };
 
-export const BASE_RUNNING_LABELS: Record<BaseRunningType, string> = {
-  steal: "盗塁",
-  caughtStealing: "盗塁死",
-  wildPitch: "ワイルドピッチ",
-  passedBall: "パスボール",
-  pickOff: "牽制死",
-  balk: "ボーク",
-};
-
-/** Default short text for inning cells (走塁・配球). Custom `resultDetail` overrides. */
-export const BASE_RUNNING_SCOREBOOK_SHORT: Record<BaseRunningType, string> = {
-  steal: "盗",
-  caughtStealing: "盗死",
-  wildPitch: "WP",
-  passedBall: "PB",
-  pickOff: "牽制死",
-  balk: "ボーク",
-};
-
 export const FIELDING_POSITION_LABELS: Record<FieldingPosition, string> = {
   pitcher: "投手 (P)",
   catcher: "捕手 (C)",
@@ -182,32 +158,6 @@ export const FIELDING_POSITION_SCOREBOOK: Record<FieldingPosition, string> = {
   center: "中",
   right: "右",
   dh: "D",
-};
-
-/**
- * Short labels for inning cells (イニングごとの打席結果).
- * @see RESULT_LABELS for full names
- */
-export const AT_BAT_SCOREBOOK_SHORT: Record<AtBatResult, string> = {
-  single: "1",
-  double: "2",
-  triple: "3",
-  homerun: "HR",
-  groundOut: "ゴ",
-  flyOut: "飛",
-  strikeout: "空三振",
-  strikeoutSwinging: "空三振",
-  strikeoutLooking: "見三振",
-  uncaughtThirdStrike: "振逃",
-  doublePlay: "併",
-  otherOut: "出",
-  walk: "四球",
-  hitByPitch: "死球",
-  error: "E",
-  sacrifice: "犠",
-  sacrificeFly: "犠飛",
-  fieldersChoice: "FC",
-  interference: "妨",
 };
 
 export const FIELDING_POSITIONS: FieldingPosition[] = [

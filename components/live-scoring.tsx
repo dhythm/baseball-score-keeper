@@ -21,10 +21,7 @@ import {
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
 import type { GameEvent, RunnerMovement } from "@/lib/domain/types";
-import {
-  isAutoAdvanceAtBatResult,
-  generateId,
-} from "@/lib/game-utils";
+import { isAutoAdvanceAtBatResult, generateId } from "@/lib/game-utils";
 import { getCurrentBatter } from "@/lib/app-state/selectors";
 import {
   createAtBatEvent,
@@ -121,16 +118,18 @@ export function LiveScoring() {
   const handleRunnerAdvanceConfirm = (movements: RunnerMovement[]) => {
     if (!currentBatter || !pendingResult) return;
 
-    if (!recordEvent(
-      createAtBatEvent({
-        id: generateId(),
-        batterId: currentBatter.id,
-        result: pendingResult,
-        detail: pendingDetail,
-        movements,
-      }),
-      "打席を記録しました"
-    )) {
+    if (
+      !recordEvent(
+        createAtBatEvent({
+          id: generateId(),
+          batterId: currentBatter.id,
+          result: pendingResult,
+          detail: pendingDetail,
+          movements,
+        }),
+        "打席を記録しました"
+      )
+    ) {
       return;
     }
 
@@ -157,13 +156,15 @@ export function LiveScoring() {
   };
 
   const handleEndGame = () => {
-    if (!recordEvent(
-      createGameControlEvent({
-        id: generateId(),
-        reason: gameEndReason,
-      }),
-      "試合終了を記録しました"
-    )) {
+    if (
+      !recordEvent(
+        createGameControlEvent({
+          id: generateId(),
+          reason: gameEndReason,
+        }),
+        "試合終了を記録しました"
+      )
+    ) {
       return;
     }
     setShowEndGameDialog(false);
@@ -299,9 +300,7 @@ export function LiveScoring() {
           className="left-1/2 right-auto max-h-[88dvh] w-[min(100%,42rem)] -translate-x-1/2 gap-0 overflow-y-auto rounded-t-[1.75rem] border-x border-t bg-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
         >
           <SheetHeader className="sticky top-0 z-10 border-b border-border bg-card px-5 py-4">
-            <SheetTitle className="text-lg font-extrabold">
-              選手交代
-            </SheetTitle>
+            <SheetTitle className="text-lg font-extrabold">選手交代</SheetTitle>
           </SheetHeader>
           <SubstitutionSheet
             game={game}

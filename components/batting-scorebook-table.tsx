@@ -4,10 +4,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import type { AppGame } from "@/lib/app-state/types";
 import { getEffectiveInningCount } from "@/lib/app-state/selectors";
-import type {
-  FieldingPosition,
-  TeamSide,
-} from "@/lib/domain/types";
+import type { FieldingPosition, TeamSide } from "@/lib/domain/types";
 import {
   formatBattingAverage,
   getPlayerBattingStats,
@@ -29,7 +26,10 @@ function positionLabel(position: FieldingPosition | null | undefined): string {
   return formatFieldingPosition(position);
 }
 
-export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableProps) {
+export function BattingScorebookTable({
+  game,
+  teamSide,
+}: BattingScorebookTableProps) {
   const team = game.config.teams[teamSide];
   const innings = getEffectiveInningCount(game);
   const { timeline } = game;
@@ -140,7 +140,11 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               <th className={thStat} scope="col" title="犠飛">
                 飛
               </th>
-              <th className={cn(thStat, "border-r border-border")} scope="col" title="打率">
+              <th
+                className={cn(thStat, "border-r border-border")}
+                scope="col"
+                title="打率"
+              >
                 率
               </th>
               {Array.from({ length: innings }, (_, i) => (
@@ -159,12 +163,17 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               const isStarter = index < team.players.length;
               const stats = getPlayerBattingStats(timeline, player.id);
               return (
-                <tr key={player.id} className="border-b border-border last:border-b-0">
+                <tr
+                  key={player.id}
+                  className="border-b border-border last:border-b-0"
+                >
                   <td className="sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-card px-1 py-1.5 text-center font-mono text-[11px] text-muted-foreground tabular-nums sm:text-xs">
                     {isStarter ? index + 1 : "↳"}
                   </td>
                   <td className="sticky left-8 z-10 w-28 min-w-28 max-w-28 border-r border-border bg-card px-1 py-1.5 font-medium leading-snug text-foreground">
-                    <span className="line-clamp-2 text-xs sm:text-sm">{player.name}</span>
+                    <span className="line-clamp-2 text-xs sm:text-sm">
+                      {player.name}
+                    </span>
                   </td>
                   <td className="sticky left-36 z-10 w-8 min-w-8 border-r border-border bg-card px-0 py-1.5 text-center text-[11px] text-muted-foreground sm:text-xs">
                     {positionLabel(player.position)}
@@ -178,7 +187,12 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                   <td className={tdStat}>{stats.strikeouts}</td>
                   <td className={tdStat}>{stats.sacrifice}</td>
                   <td className={tdStat}>{stats.sacrificeFlies}</td>
-                  <td className={cn(tdStat, "border-r border-border text-foreground")}>
+                  <td
+                    className={cn(
+                      tdStat,
+                      "border-r border-border text-foreground"
+                    )}
+                  >
                     {formatBattingAverage(stats.hits, stats.atBats)}
                   </td>
                   {Array.from({ length: innings }, (_, i) => {
@@ -233,11 +247,21 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               <td className={cn(tdStat, "text-foreground")}>{totals.runs}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.rbi}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.walks}</td>
-              <td className={cn(tdStat, "text-foreground")}>{totals.hitByPitch}</td>
-              <td className={cn(tdStat, "text-foreground")}>{totals.strikeouts}</td>
-              <td className={cn(tdStat, "text-foreground")}>{totals.sacrifice}</td>
-              <td className={cn(tdStat, "text-foreground")}>{totals.sacrificeFlies}</td>
-              <td className={cn(tdStat, "border-r border-border text-foreground")}>
+              <td className={cn(tdStat, "text-foreground")}>
+                {totals.hitByPitch}
+              </td>
+              <td className={cn(tdStat, "text-foreground")}>
+                {totals.strikeouts}
+              </td>
+              <td className={cn(tdStat, "text-foreground")}>
+                {totals.sacrifice}
+              </td>
+              <td className={cn(tdStat, "text-foreground")}>
+                {totals.sacrificeFlies}
+              </td>
+              <td
+                className={cn(tdStat, "border-r border-border text-foreground")}
+              >
                 {formatBattingAverage(totals.hits, totals.atBats)}
               </td>
               {Array.from({ length: innings }, (_, i) => (
@@ -248,7 +272,8 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
         </table>
       </div>
       <p className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
-        列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振 犠=犠打 飛=犠飛 率=打率。
+        列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振
+        犠=犠打 飛=犠飛 率=打率。
         右側の数字はイニング（先攻は各回の表・後攻は裏の結果）。イニング欄はプレー表記の下に打点（自動）を小さく表示します。
       </p>
     </div>

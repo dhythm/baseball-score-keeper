@@ -41,8 +41,7 @@ export function GameSituation({
   const teamSide = half === "top" ? "away" : "home";
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
 
-  const hasRunners =
-    !!runners.first || !!runners.second || !!runners.third;
+  const hasRunners = !!runners.first || !!runners.second || !!runners.third;
 
   return (
     <Card className="gap-0 overflow-hidden rounded-2xl border-border py-0 shadow-[0_8px_24px_rgba(20,50,28,0.07)]">
@@ -91,7 +90,9 @@ export function GameSituation({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                    #{((batterIndex + 1) % game.teams[teamSide].players.length) + 1}
+                    #
+                    {((batterIndex + 1) % game.teams[teamSide].players.length) +
+                      1}
                   </span>
                   <span className="truncate text-sm font-semibold text-muted-foreground">
                     {nextBatter.name}

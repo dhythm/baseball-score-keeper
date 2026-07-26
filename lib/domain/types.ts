@@ -1,7 +1,7 @@
 export type TeamSide = "away" | "home";
 export type Half = "top" | "bottom";
 export type Base = "first" | "second" | "third";
-export type RunnerOrigin = "batter" | Base;
+type RunnerOrigin = "batter" | Base;
 export type RunnerDestination = Base | "home" | "out";
 
 export type FieldingPosition =
@@ -36,12 +36,7 @@ export type AtBatResult =
   | "uncaughtThirdStrike";
 
 export type BaseRunningType =
-  | "steal"
-  | "caughtStealing"
-  | "wildPitch"
-  | "passedBall"
-  | "pickOff"
-  | "balk";
+  "steal" | "caughtStealing" | "wildPitch" | "passedBall" | "pickOff" | "balk";
 
 export interface Player {
   id: string;
@@ -109,10 +104,7 @@ export interface BaseRunningEvent {
 }
 
 export type SubstitutionRole =
-  | "pinchHitter"
-  | "pinchRunner"
-  | "fielder"
-  | "pitcher";
+  "pinchHitter" | "pinchRunner" | "fielder" | "pitcher";
 
 export interface SubstitutionEvent {
   id: string;
@@ -131,16 +123,10 @@ export interface GameControlEvent {
 }
 
 export type GameEvent =
-  | AtBatEvent
-  | BaseRunningEvent
-  | SubstitutionEvent
-  | GameControlEvent;
+  AtBatEvent | BaseRunningEvent | SubstitutionEvent | GameControlEvent;
 
-export type GameEndReason =
-  | "homeAheadAfterTop"
-  | "walkOff"
-  | "completedHalf"
-  | "manual";
+type GameEndReason =
+  "homeAheadAfterTop" | "walkOff" | "completedHalf" | "manual";
 
 export interface Score {
   away: number;
@@ -163,9 +149,9 @@ export interface Snapshot {
   gameEndReasonDetail?: string;
 }
 
-export type ViolationSeverity = "warning" | "error";
+type ViolationSeverity = "warning" | "error";
 
-export type ViolationCode =
+type ViolationCode =
   | "INVALID_REGULATION_INNINGS"
   | "EMPTY_LINEUP"
   | "DUPLICATE_PLAYER_ID"

@@ -26,9 +26,8 @@ const BASE_NUMBER: Record<Base, number> = {
 function initialSnapshot(config: GameConfig): Snapshot {
   const initialPitcherId = (team: TeamSide): string | null =>
     config.teams[team].startingPitcherId ??
-    config.teams[team].players.find(
-      (player) => player.position === "pitcher"
-    )?.id ??
+    config.teams[team].players.find((player) => player.position === "pitcher")
+      ?.id ??
     null;
 
   return {
@@ -81,7 +80,10 @@ function violation(
 function validateConfig(config: GameConfig): Violation[] {
   const violations: Violation[] = [];
 
-  if (!Number.isInteger(config.regulationInnings) || config.regulationInnings < 1) {
+  if (
+    !Number.isInteger(config.regulationInnings) ||
+    config.regulationInnings < 1
+  ) {
     violations.push({
       code: "INVALID_REGULATION_INNINGS",
       severity: "error",
@@ -497,9 +499,7 @@ export function replay(
       ...(config.teams.away.benchPlayers ?? []),
       ...config.teams.home.players,
       ...(config.teams.home.benchPlayers ?? []),
-    ].map(
-      (player) => player.id
-    )
+    ].map((player) => player.id)
   );
 
   for (const [index, event] of events.entries()) {
@@ -572,9 +572,7 @@ export function replay(
     }
 
     if (event.kind === "substitution") {
-      const slot = snapshot.activeLineup[event.team].indexOf(
-        event.outPlayerId
-      );
+      const slot = snapshot.activeLineup[event.team].indexOf(event.outPlayerId);
       if (slot >= 0) {
         snapshot.activeLineup[event.team][slot] = event.inPlayerId;
       }
@@ -683,8 +681,4 @@ export function replay(
   }
 
   return { snapshot, timeline, violations };
-}
-
-export function isGameOver(snapshot: Snapshot): boolean {
-  return snapshot.gameStatus === "finished";
 }

@@ -38,8 +38,7 @@ function OrderList({
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
   const activePlayerIds = game.currentState.activeLineup[teamSide];
   const playerCount = activePlayerIds.length;
-  const nextIndex =
-    playerCount > 0 ? (batterIndex + 1) % playerCount : 0;
+  const nextIndex = playerCount > 0 ? (batterIndex + 1) % playerCount : 0;
   const currentPlayerId = activePlayerIds[batterIndex];
   const nextPlayerId = activePlayerIds[nextIndex];
   const showNextBadge =
@@ -127,8 +126,7 @@ function OrderList({
         <tbody>
           {players.map((player, i) => {
             const isStarter = i < team.players.length;
-            const isCurrent =
-              isBattingTeam && player.id === currentPlayerId;
+            const isCurrent = isBattingTeam && player.id === currentPlayerId;
             const isNext =
               showNextBadge && player.id === nextPlayerId && !isCurrent;
 
@@ -162,7 +160,9 @@ function OrderList({
                     <span
                       className={cn(
                         "line-clamp-2 text-xs leading-snug sm:text-sm",
-                        isCurrent ? "font-bold text-foreground" : "text-foreground"
+                        isCurrent
+                          ? "font-bold text-foreground"
+                          : "text-foreground"
                       )}
                     >
                       {player.name}
@@ -196,10 +196,7 @@ function OrderList({
                   return (
                     <td
                       key={inningNum}
-                      className={cn(
-                        tdInning,
-                        isLiveColumn && "bg-accent/10"
-                      )}
+                      className={cn(tdInning, isLiveColumn && "bg-accent/10")}
                     >
                       {cellEntries.length === 0 ? (
                         <span className="text-muted-foreground/40">·</span>
@@ -212,28 +209,31 @@ function OrderList({
                               event.kind === "atBat" ||
                               event.kind === "baseRunning";
                             return (
-                            <button
-                              key={event.id}
-                              type="button"
-                              className={cn(
-                                "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
-                                event.kind === "atBat"
-                                  ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
-                                  : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
-                              )}
-                              disabled={!editable}
-                              onClick={() => editable && onEditAtBat(event.id)}
-                              aria-label={`${inningNum}回の記録 ${label}${editable ? "を修正" : ""}`}
-                            >
-                              {event.kind === "atBat" ? (
-                                <ScorebookAtBatLine entry={entry} />
-                              ) : (
-                                <span className="line-clamp-2 break-all px-0.5 text-[10px] leading-tight sm:text-[11px]">
-                                  {label}
-                                </span>
-                              )}
-                            </button>
-                          )})}
+                              <button
+                                key={event.id}
+                                type="button"
+                                className={cn(
+                                  "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
+                                  event.kind === "atBat"
+                                    ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
+                                    : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
+                                )}
+                                disabled={!editable}
+                                onClick={() =>
+                                  editable && onEditAtBat(event.id)
+                                }
+                                aria-label={`${inningNum}回の記録 ${label}${editable ? "を修正" : ""}`}
+                              >
+                                {event.kind === "atBat" ? (
+                                  <ScorebookAtBatLine entry={entry} />
+                                ) : (
+                                  <span className="line-clamp-2 break-all px-0.5 text-[10px] leading-tight sm:text-[11px]">
+                                    {label}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </td>

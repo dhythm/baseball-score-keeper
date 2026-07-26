@@ -369,9 +369,7 @@ describe("replay", () => {
     expect(result.timeline.at(-1)?.applied).toBe(false);
     expect(result.snapshot).toMatchObject({ half: "top", outs: 2 });
     expect(
-      result.violations.filter(
-        (item) => item.eventId === "too-many-outs"
-      )
+      result.violations.filter((item) => item.eventId === "too-many-outs")
     ).toHaveLength(1);
     expect(result.violations).toContainEqual(
       expect.objectContaining({
@@ -634,10 +632,7 @@ describe("replay", () => {
 
     const result = replay(events, gameConfig);
 
-    expect(result.snapshot.activeLineup.away).toEqual([
-      "away-bench",
-      "away-2",
-    ]);
+    expect(result.snapshot.activeLineup.away).toEqual(["away-bench", "away-2"]);
     expect(result.snapshot.currentBatterIndex.away).toBe(1);
     expect(result.timeline.every((entry) => entry.applied)).toBe(true);
     expect(result.violations).toEqual([]);
@@ -673,10 +668,7 @@ describe("replay", () => {
 
     const result = replay(events, gameConfig);
 
-    expect(result.snapshot.activeLineup.away).toEqual([
-      "away-bench",
-      "away-2",
-    ]);
+    expect(result.snapshot.activeLineup.away).toEqual(["away-bench", "away-2"]);
     expect(result.snapshot.runners.first).toBe("away-bench");
     expect(result.timeline[1]).toMatchObject({
       team: "away",

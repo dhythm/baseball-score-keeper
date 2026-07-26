@@ -37,14 +37,15 @@ interface BaseRunningEventSheetProps {
   submitLabel?: string;
 }
 
-const EVENT_TYPES: { type: BaseRunningType; label: string; isOut: boolean }[] = [
-  { type: "steal", label: "盗塁", isOut: false },
-  { type: "caughtStealing", label: "盗塁死", isOut: true },
-  { type: "wildPitch", label: "暴投", isOut: false },
-  { type: "passedBall", label: "捕逸", isOut: false },
-  { type: "pickOff", label: "牽制死", isOut: true },
-  { type: "balk", label: "ボーク", isOut: false },
-];
+const EVENT_TYPES: { type: BaseRunningType; label: string; isOut: boolean }[] =
+  [
+    { type: "steal", label: "盗塁", isOut: false },
+    { type: "caughtStealing", label: "盗塁死", isOut: true },
+    { type: "wildPitch", label: "暴投", isOut: false },
+    { type: "passedBall", label: "捕逸", isOut: false },
+    { type: "pickOff", label: "牽制死", isOut: true },
+    { type: "balk", label: "ボーク", isOut: false },
+  ];
 
 function destinationOptions(base: Base) {
   if (base === "first") {
@@ -71,8 +72,7 @@ export function BaseRunningEventSheet({
   submitLabel = "走塁を記録",
 }: BaseRunningEventSheetProps) {
   const runners = runnerSnapshot ?? game.currentState.runners;
-  const teamSide: TeamSide =
-    game.currentState.half === "top" ? "away" : "home";
+  const teamSide: TeamSide = game.currentState.half === "top" ? "away" : "home";
   const battingTeam = game.config.teams[teamSide];
   const [selectedType, setSelectedType] = useState<BaseRunningType>(
     initialEvent?.type ?? "steal"
@@ -111,9 +111,7 @@ export function BaseRunningEventSheet({
         ])
       )
     );
-    setCreditRbi(
-      initialEvent.movements.some((movement) => movement.isRBI)
-    );
+    setCreditRbi(initialEvent.movements.some((movement) => movement.isRBI));
     setRbiBatterId(initialEvent.rbiCreditBatterId ?? "");
   }, [initialEvent]);
 
@@ -133,8 +131,7 @@ export function BaseRunningEventSheet({
     (playerId) => destinationByRunnerId[playerId] === "home"
   );
   const allDestinationsSelected = selectedRunnerIds.every(
-    (playerId) =>
-      eventType.isOut || Boolean(destinationByRunnerId[playerId])
+    (playerId) => eventType.isOut || Boolean(destinationByRunnerId[playerId])
   );
   const canSubmit =
     selectedRunnerIds.length > 0 &&
@@ -143,9 +140,7 @@ export function BaseRunningEventSheet({
 
   const toggleRunner = (playerId: string, checked: boolean) => {
     setSelectedRunnerIds((current) =>
-      checked
-        ? [...current, playerId]
-        : current.filter((id) => id !== playerId)
+      checked ? [...current, playerId] : current.filter((id) => id !== playerId)
     );
     if (!checked) {
       setDestinationByRunnerId((current) => {
@@ -161,9 +156,7 @@ export function BaseRunningEventSheet({
     const movements = selectedRunnerIds.flatMap((playerId) => {
       const runner = runnerOptions.find((option) => option.id === playerId);
       if (!runner) return [];
-      const to = eventType.isOut
-        ? "out"
-        : destinationByRunnerId[playerId];
+      const to = eventType.isOut ? "out" : destinationByRunnerId[playerId];
       if (!to) return [];
       return [
         {
@@ -177,9 +170,7 @@ export function BaseRunningEventSheet({
     onEvent({
       type: selectedType,
       movements,
-      ...(creditRbi && rbiBatterId
-        ? { rbiCreditBatterId: rbiBatterId }
-        : {}),
+      ...(creditRbi && rbiBatterId ? { rbiCreditBatterId: rbiBatterId } : {}),
     });
   };
 

@@ -38,9 +38,7 @@ const out = (id: string, batterId: string): GameEvent => ({
   kind: "atBat",
   batterId,
   result: "groundOut",
-  movements: [
-    { playerId: batterId, from: "batter", to: "out", isRBI: false },
-  ],
+  movements: [{ playerId: batterId, from: "batter", to: "out", isRBI: false }],
 });
 
 const homeRun = (id: string, batterId: string): GameEvent => ({
@@ -48,9 +46,7 @@ const homeRun = (id: string, batterId: string): GameEvent => ({
   kind: "atBat",
   batterId,
   result: "homerun",
-  movements: [
-    { playerId: batterId, from: "batter", to: "home", isRBI: true },
-  ],
+  movements: [{ playerId: batterId, from: "batter", to: "home", isRBI: true }],
 });
 
 function reduce(actions: GameAction[]) {
@@ -118,10 +114,7 @@ describe("app-state gameReducer", () => {
   it("deletes and undoes events by replaying the remaining inputs", () => {
     const loaded = gameReducer(null, {
       type: "LOAD_GAME",
-      game: persistedGame([
-        out("first", "away-1"),
-        out("second", "away-2"),
-      ]),
+      game: persistedGame([out("first", "away-1"), out("second", "away-2")]),
     });
     const deleted = gameReducer(loaded, {
       type: "DELETE_EVENT",

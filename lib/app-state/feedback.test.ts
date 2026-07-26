@@ -22,4 +22,21 @@ describe("formatViolationMessage", () => {
       })
     ).toBe("入力内容を確認してください。");
   });
+
+  it("explains invalid game notes in Japanese", () => {
+    expect(
+      formatViolationMessage({
+        code: "EMPTY_GAME_NOTE",
+        severity: "error",
+        message: "note must not be blank",
+      })
+    ).toBe("メモを入力してください。");
+    expect(
+      formatViolationMessage({
+        code: "GAME_NOTE_TOO_LONG",
+        severity: "error",
+        message: "note must not exceed 120 characters",
+      })
+    ).toBe("メモは120文字以内で入力してください。");
+  });
 });

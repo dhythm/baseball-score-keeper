@@ -140,6 +140,28 @@ describe("v2 storage envelope", () => {
 
     expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
   });
+
+  it("round-trips game notes and rejects a non-string note body", () => {
+    const game = persistedGame({
+      events: [
+        {
+          id: "note",
+          kind: "note",
+          text: "雨天のため10分間中断",
+        },
+      ],
+    });
+
+    expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
+
+    const envelope = createStorageEnvelope(game) as unknown as {
+      game: { events: Array<Record<string, unknown>> };
+    };
+    envelope.game.events[0].text = 123;
+    expect(() => parseStoredGame(JSON.stringify(envelope))).toThrow(
+      "malformed schema version 2 game"
+    );
+  });
 });
 
 describe("v1 migration", () => {

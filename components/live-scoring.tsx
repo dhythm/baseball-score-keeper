@@ -33,6 +33,7 @@ import {
   createAtBatEvent,
   createBaseRunningEvent,
   createGameControlEvent,
+  createGameNoteEvent,
   getDefaultMovementsForSelection,
 } from "@/lib/app-state/event-factory";
 import {
@@ -49,6 +50,7 @@ import {
   Flag,
   RotateCcw,
   Footprints,
+  MessageSquarePlus,
   PlusCircle,
   UserRoundCog,
 } from "lucide-react";
@@ -57,6 +59,7 @@ import { formatViolationMessage } from "@/lib/app-state/feedback";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { SituationMiniHeader } from "@/components/situation-mini-header";
 import { EventIntegrityAlert } from "@/components/event-integrity-alert";
+import { GameNoteDialog } from "@/components/game-note-dialog";
 
 export function LiveScoring() {
   const { game, dispatch, addEvent } = useGame();
@@ -66,6 +69,7 @@ export function LiveScoring() {
   const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
   const [baseRunningOpen, setBaseRunningOpen] = useState(false);
   const [substitutionOpen, setSubstitutionOpen] = useState(false);
+  const [gameNoteOpen, setGameNoteOpen] = useState(false);
   const [gameEndReason, setGameEndReason] = useState("規定回終了");
 
   if (!game) return null;
@@ -199,6 +203,16 @@ export function LiveScoring() {
             type="button"
             variant="ghost"
             size="icon"
+            className="h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={() => setGameNoteOpen(true)}
+            aria-label="試合メモを記録"
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             className="hidden h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10 sm:inline-flex"
             disabled={game.events.length === 0}
             onClick={handleUndo}
@@ -232,7 +246,7 @@ export function LiveScoring() {
         <div className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] lg:items-start lg:gap-5">
           <section className="min-w-0 space-y-3 lg:sticky lg:top-[5.25rem]">
             <EventIntegrityAlert game={game} />
-            <Scoreboard game={game} />
+            <Scoreboard game={game} collapsibleOnMobile />
             <GameSituation
               game={game}
               onRecordResult={() => setAtBatDialogOpen(true)}
@@ -288,6 +302,17 @@ export function LiveScoring() {
         onOpenChange={setAtBatDialogOpen}
         mode="new"
         onNewResult={handleAtBatResult}
+      />
+
+      <GameNoteDialog
+        open={gameNoteOpen}
+        onOpenChange={setGameNoteOpen}
+        onSubmit={(text) =>
+          recordEvent(
+            createGameNoteEvent({ id: generateId(), text }),
+            "メモを記録しました"
+          )
+        }
       />
 
       <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>

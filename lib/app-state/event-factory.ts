@@ -6,6 +6,7 @@ import type {
   BattedBall,
   FieldingPosition,
   GameControlEvent,
+  GameNoteEvent,
   RunnerMovement,
   Runners,
   SubstitutionEvent,
@@ -182,5 +183,19 @@ export function createGameControlEvent({
     kind: "gameControl",
     action: "endGame",
     ...(reason ? { reason } : {}),
+  };
+}
+
+export function createGameNoteEvent({
+  id,
+  text,
+}: {
+  id: string;
+  text: string;
+}): GameNoteEvent {
+  return {
+    id,
+    kind: "note",
+    text: text.trim(),
   };
 }

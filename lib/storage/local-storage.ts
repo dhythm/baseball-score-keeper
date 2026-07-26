@@ -329,6 +329,9 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
         )
       );
     }
+    if (event.kind === "note") {
+      return typeof event.text === "string";
+    }
     return (
       event.kind === "gameControl" &&
       event.action === "endGame" &&

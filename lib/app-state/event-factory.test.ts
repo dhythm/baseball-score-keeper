@@ -4,6 +4,7 @@ import {
   createAtBatEvent,
   createBaseRunningEvent,
   createGameControlEvent,
+  createGameNoteEvent,
   createSubstitutionEvent,
   getDefaultMovementsForSelection,
 } from "./event-factory";
@@ -192,6 +193,19 @@ describe("management event factories", () => {
       kind: "gameControl",
       action: "endGame",
       reason: "時間切れ",
+    });
+  });
+
+  it("creates a trimmed game-note input event", () => {
+    expect(
+      createGameNoteEvent({
+        id: "note",
+        text: "  雨天のため中断  ",
+      })
+    ).toEqual({
+      id: "note",
+      kind: "note",
+      text: "雨天のため中断",
     });
   });
 });

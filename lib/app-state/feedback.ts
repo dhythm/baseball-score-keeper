@@ -15,6 +15,8 @@ const VIOLATION_MESSAGES: Partial<Record<Violation["code"], string>> = {
   INVALID_RBI: "ホームイン以外には打点を設定できません。",
   OUTS_EXCEED_HALF_INNING:
     "このプレーでは3アウトを超えます。アウト数を確認してください。",
+  EMPTY_GAME_NOTE: "メモを入力してください。",
+  GAME_NOTE_TOO_LONG: "メモは120文字以内で入力してください。",
   SUBSTITUTION_PLAYER_NOT_ON_TEAM: "交代選手がチームに登録されていません。",
   SUBSTITUTION_OUT_PLAYER_NOT_ACTIVE: "退く選手は現在出場していません。",
   SUBSTITUTION_IN_PLAYER_ALREADY_ACTIVE: "入る選手はすでに出場しています。",

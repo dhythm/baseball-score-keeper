@@ -7,6 +7,7 @@ import type {
   FieldingPosition,
   GameEvent,
   GameControlEvent,
+  GameNoteEvent,
   RunnerDestination,
   RunnerMovement,
   SubstitutionEvent,
@@ -150,9 +151,17 @@ export function formatEventNotation(event: GameEvent): string {
       return formatBaseRunningNotation(event);
     case "substitution":
       return formatSubstitutionNotation(event);
+    case "note":
+      return formatGameNoteNotation(event);
     case "gameControl":
       return formatGameControlNotation(event);
   }
+}
+
+export function formatGameNoteNotation(
+  event: Pick<GameNoteEvent, "text">
+): string {
+  return `メモ: ${event.text}`;
 }
 
 export function formatSubstitutionNotation(

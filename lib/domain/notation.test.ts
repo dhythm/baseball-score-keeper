@@ -8,6 +8,7 @@ import {
   formatEventNotation,
   formatFieldingPosition,
   formatGameControlNotation,
+  formatGameNoteNotation,
   formatSubstitutionNotation,
 } from "./notation";
 
@@ -127,6 +128,17 @@ describe("base-running notation", () => {
 });
 
 describe("game-management notation", () => {
+  it("formats a game note without assigning it to a player", () => {
+    const event = {
+      id: "note",
+      kind: "note",
+      text: "雨天のため10分間中断",
+    } as const;
+
+    expect(formatGameNoteNotation(event)).toBe("メモ: 雨天のため10分間中断");
+    expect(formatEventNotation(event)).toBe("メモ: 雨天のため10分間中断");
+  });
+
   it("formats each substitution role without parsing free text", () => {
     const baseEvent = {
       id: "change",

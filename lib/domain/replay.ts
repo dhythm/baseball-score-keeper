@@ -194,6 +194,30 @@ function validateEvent(
       ...validateSubstitution(event, eventIndex, snapshot, config),
     ];
   }
+  if (event.kind === "note") {
+    if (event.text.trim().length === 0) {
+      violations.push(
+        violation(
+          event,
+          eventIndex,
+          "EMPTY_GAME_NOTE",
+          "error",
+          "game note must not be blank"
+        )
+      );
+    } else if (Array.from(event.text).length > 120) {
+      violations.push(
+        violation(
+          event,
+          eventIndex,
+          "GAME_NOTE_TOO_LONG",
+          "error",
+          "game note must not exceed 120 characters"
+        )
+      );
+    }
+    return violations;
+  }
   if (event.kind === "gameControl") return violations;
 
   const outsInPlay = event.movements.filter(
@@ -547,6 +571,26 @@ export function replay(
     }
 
     const team = eventTeam(event, snapshot);
+
+    if (event.kind === "note") {
+      const after = copySnapshot(snapshot);
+      timeline.push({
+        event,
+        index,
+        inning: before.inning,
+        half: before.half,
+        team,
+        outsBefore: before.outs,
+        outsAfter: before.outs,
+        outsRecorded: 0,
+        runsScored: 0,
+        scoringMovements: [],
+        applied: true,
+        before,
+        after,
+      });
+      continue;
+    }
 
     if (event.kind === "gameControl") {
       snapshot.gameStatus = "finished";

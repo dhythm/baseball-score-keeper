@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { Game as LegacyGame, GameEvent as LegacyEvent } from "../types";
+import type {
+  LegacyGame,
+  LegacyGameEvent as LegacyEvent,
+} from "./legacy-v1-types";
 import completeLegacyFixture from "./__fixtures__/v1-complete.json";
 import type { PersistedGameV2 } from "./local-storage";
 import {
@@ -137,6 +140,28 @@ describe("v2 storage envelope", () => {
 
     expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
   });
+
+  it("round-trips game notes and rejects a non-string note body", () => {
+    const game = persistedGame({
+      events: [
+        {
+          id: "note",
+          kind: "note",
+          text: "雨天のため10分間中断",
+        },
+      ],
+    });
+
+    expect(parseStoredGame(serializeStoredGame(game))).toEqual(game);
+
+    const envelope = createStorageEnvelope(game) as unknown as {
+      game: { events: Array<Record<string, unknown>> };
+    };
+    envelope.game.events[0].text = 123;
+    expect(() => parseStoredGame(JSON.stringify(envelope))).toThrow(
+      "malformed schema version 2 game"
+    );
+  });
 });
 
 describe("v1 migration", () => {
@@ -176,7 +201,7 @@ describe("v1 migration", () => {
     expect(migrated).not.toHaveProperty("currentState");
   });
 
-  it("maps legacy strikeout to the explicit swinging result", () => {
+  it("preserves a legacy unspecialized strikeout", () => {
     const migrated = migrateV1Game(
       legacyGame([
         legacyEvent({
@@ -188,11 +213,11 @@ describe("v1 migration", () => {
 
     expect(migrated.events[0]).toMatchObject({
       kind: "atBat",
-      result: "strikeoutSwinging",
+      result: "strikeout",
     });
   });
 
-  it("represents a double play as an ordinary out result and preserves every out movement", () => {
+  it("preserves a double play result and every out movement", () => {
     const movements = [
       {
         playerId: "home-1",
@@ -221,7 +246,7 @@ describe("v1 migration", () => {
 
     expect(migrated.events[0]).toMatchObject({
       kind: "atBat",
-      result: "otherOut",
+      result: "doublePlay",
       note: "遊併",
       movements,
     });
@@ -336,7 +361,7 @@ describe("v1 migration", () => {
       expect.objectContaining({
         id: "fixture-double-play",
         kind: "atBat",
-        result: "otherOut",
+        result: "doublePlay",
       }),
     ]);
     expect(migrated).not.toHaveProperty("currentState");

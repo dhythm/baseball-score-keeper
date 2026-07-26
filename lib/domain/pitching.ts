@@ -20,6 +20,7 @@ export interface PitcherStats extends PitchingStats {
 
 const hitResults = new Set(["single", "double", "triple", "homerun"]);
 const strikeoutResults = new Set([
+  "strikeout",
   "strikeoutSwinging",
   "strikeoutLooking",
   "uncaughtThirdStrike",
@@ -27,6 +28,15 @@ const strikeoutResults = new Set([
 
 function formatInningsPitched(outs: number): string {
   return `${Math.floor(outs / 3)}.${outs % 3}`;
+}
+
+function getResponsiblePitcherId(
+  responsiblePitcherByRunnerId: ReadonlyMap<string, string | null>,
+  runnerId: string,
+  fallbackPitcherId: string | null
+): string | null {
+  if (!responsiblePitcherByRunnerId.has(runnerId)) return fallbackPitcherId;
+  return responsiblePitcherByRunnerId.get(runnerId) ?? null;
 }
 
 export function getStartingPitcherStats(
@@ -79,21 +89,38 @@ export function getPitcherStats(
   const lines = new Map<string | null, PitcherStats>();
   lines.set(startingPitcherId, emptyPitcherStats(startingPitcherId, "starter"));
   let currentPitcherId = startingPitcherId;
+  const responsiblePitcherByRunnerId = new Map<string, string | null>();
 
   for (const entry of timeline) {
     if (!entry.applied) continue;
-    if (
-      entry.event.kind === "substitution" &&
-      entry.event.team === fieldingTeam &&
-      entry.event.role === "pitcher"
-    ) {
-      currentPitcherId = entry.event.inPlayerId;
-      if (!lines.has(currentPitcherId)) {
-        lines.set(
-          currentPitcherId,
-          emptyPitcherStats(currentPitcherId, "reliever")
+    if (entry.event.kind === "substitution") {
+      if (entry.event.team === fieldingTeam && entry.event.role === "pitcher") {
+        currentPitcherId = entry.event.inPlayerId;
+        if (!lines.has(currentPitcherId)) {
+          lines.set(
+            currentPitcherId,
+            emptyPitcherStats(currentPitcherId, "reliever")
+          );
+        }
+      } else if (
+        entry.event.team === battingTeam &&
+        entry.event.role === "pinchRunner" &&
+        responsiblePitcherByRunnerId.has(entry.event.outPlayerId)
+      ) {
+        const responsiblePitcherId = getResponsiblePitcherId(
+          responsiblePitcherByRunnerId,
+          entry.event.outPlayerId,
+          currentPitcherId
+        );
+        responsiblePitcherByRunnerId.delete(entry.event.outPlayerId);
+        responsiblePitcherByRunnerId.set(
+          entry.event.inPlayerId,
+          responsiblePitcherId
         );
       }
+      continue;
+    }
+    if (entry.event.kind === "gameControl" || entry.event.kind === "note") {
       continue;
     }
     if (entry.team !== battingTeam) continue;
@@ -101,7 +128,54 @@ export function getPitcherStats(
     if (!stats) continue;
     stats.outs += entry.outsRecorded;
     stats.inningsPitched = formatInningsPitched(stats.outs);
-    stats.runsAllowed += entry.runsScored;
+
+    for (const scoringMovement of entry.scoringMovements) {
+      const responsiblePitcherId = getResponsiblePitcherId(
+        responsiblePitcherByRunnerId,
+        scoringMovement.playerId,
+        currentPitcherId
+      );
+      const responsibleStats = lines.get(responsiblePitcherId);
+      if (responsibleStats) responsibleStats.runsAllowed++;
+      responsiblePitcherByRunnerId.delete(scoringMovement.playerId);
+    }
+    stats.runsAllowed += Math.max(
+      0,
+      entry.runsScored - entry.scoringMovements.length
+    );
+
+    if (entry.event.kind === "atBat" || entry.event.kind === "baseRunning") {
+      for (const runnerMovement of entry.event.movements) {
+        if (runnerMovement.to === "out" || runnerMovement.to === "home") {
+          responsiblePitcherByRunnerId.delete(runnerMovement.playerId);
+        }
+      }
+    }
+
+    if (entry.event.kind === "atBat") {
+      const batterMovement = entry.event.movements.find(
+        (runnerMovement) => runnerMovement.from === "batter"
+      );
+      if (
+        batterMovement &&
+        batterMovement.to !== "out" &&
+        batterMovement.to !== "home"
+      ) {
+        responsiblePitcherByRunnerId.set(
+          entry.event.batterId,
+          currentPitcherId
+        );
+      } else {
+        responsiblePitcherByRunnerId.delete(entry.event.batterId);
+      }
+    }
+
+    const halfInningEnded =
+      entry.outsAfter >= 3 ||
+      entry.before.inning !== entry.after.inning ||
+      entry.before.half !== entry.after.half;
+    if (halfInningEnded) responsiblePitcherByRunnerId.clear();
+
     if (entry.event.kind !== "atBat") continue;
     if (hitResults.has(entry.event.result)) stats.hitsAllowed++;
     if (entry.event.result === "walk") stats.walksAllowed++;

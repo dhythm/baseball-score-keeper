@@ -4,6 +4,7 @@ import {
   createAtBatEvent,
   createBaseRunningEvent,
   createGameControlEvent,
+  createGameNoteEvent,
   createSubstitutionEvent,
   getDefaultMovementsForSelection,
 } from "./event-factory";
@@ -45,7 +46,7 @@ describe("createAtBatEvent", () => {
     expect(event).not.toHaveProperty("runsScored");
   });
 
-  it("maps legacy UI selections to structured v2 results", () => {
+  it("preserves dedicated UI selections as structured results", () => {
     expect(
       createAtBatEvent({
         id: "double-play",
@@ -54,7 +55,7 @@ describe("createAtBatEvent", () => {
         detail: "遊併",
         movements: [],
       })
-    ).toMatchObject({ result: "otherOut" });
+    ).toMatchObject({ result: "doublePlay" });
 
     expect(
       createAtBatEvent({
@@ -67,6 +68,44 @@ describe("createAtBatEvent", () => {
     ).toMatchObject({
       result: "sacrificeFly",
       battedBall: { position: "center", type: "fly" },
+    });
+
+    expect(
+      createAtBatEvent({
+        id: "strikeout",
+        batterId: "batter",
+        result: "strikeout",
+        movements: [],
+      })
+    ).toMatchObject({ result: "strikeout" });
+  });
+
+  it("normalizes a ground ball with two recorded outs as a double play", () => {
+    expect(
+      createAtBatEvent({
+        id: "double-play-from-movements",
+        batterId: "batter",
+        result: "groundOut",
+        detail: "二ゴロ",
+        movements: [
+          {
+            playerId: "runner",
+            from: "first",
+            to: "out",
+            isRBI: false,
+            outType: "force",
+          },
+          {
+            playerId: "batter",
+            from: "batter",
+            to: "out",
+            isRBI: false,
+          },
+        ],
+      })
+    ).toMatchObject({
+      result: "doublePlay",
+      battedBall: { position: "second", type: "ground" },
     });
   });
 
@@ -81,6 +120,7 @@ describe("createAtBatEvent", () => {
       )
     ).toEqual([
       { playerId: "r3", from: "third", to: "home", isRBI: true },
+      { playerId: "r2", from: "second", to: "third", isRBI: false },
       { playerId: "batter", from: "batter", to: "out", isRBI: false },
     ]);
     expect(
@@ -182,6 +222,19 @@ describe("management event factories", () => {
       kind: "gameControl",
       action: "endGame",
       reason: "時間切れ",
+    });
+  });
+
+  it("creates a trimmed game-note input event", () => {
+    expect(
+      createGameNoteEvent({
+        id: "note",
+        text: "  雨天のため中断  ",
+      })
+    ).toEqual({
+      id: "note",
+      kind: "note",
+      text: "雨天のため中断",
     });
   });
 });

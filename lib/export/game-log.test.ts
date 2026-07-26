@@ -115,4 +115,21 @@ describe("game log export", () => {
     expect(text).toContain("試合終了（降雨コールド）");
     expect(text).not.toContain("走者: 試合終了");
   });
+
+  it("exports a game note without a fictitious player label", () => {
+    const game = completedGame();
+    game.status = "live";
+    game.events = [
+      {
+        id: "note",
+        kind: "note",
+        text: "雨天のため10分間中断",
+      },
+    ];
+
+    const text = exportGameAsText(game);
+
+    expect(text).toContain("1回表 0アウト メモ: 雨天のため10分間中断");
+    expect(text).not.toContain("走者: メモ");
+  });
 });

@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <AppProviders>{children}</AppProviders>
         <NetworkStatus />
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="bottom-center" richColors closeButton />
         <ServiceWorkerRegistration />
         <Analytics />
       </body>

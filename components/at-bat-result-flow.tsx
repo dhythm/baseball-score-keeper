@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import type {
-  AtBatResult,
-  FieldingPosition,
-  ResultCategory,
-} from "@/lib/types";
+import type { AtBatResult, FieldingPosition } from "@/lib/domain/types";
 import {
   FIELDING_POSITIONS_FOR_PLAY,
   buildHitDetail,
@@ -16,6 +12,7 @@ import {
   buildDoublePlayDetail,
   buildErrorDetail,
   buildFieldersChoiceDetail,
+  buildSacrificeFlyDetail,
   HIT_KINDS as DIRECT_HIT_KINDS,
   OTHER_OUT_DETAILS,
   SACRIFICE_DETAILS,
@@ -33,6 +30,8 @@ const CATEGORIES: {
   { id: "error", label: "エラー", variant: "outline" },
   { id: "other", label: "その他", variant: "outline" },
 ];
+
+type ResultCategory = "hit" | "out" | "walk" | "error" | "other";
 
 const HIT_KINDS: {
   result: "single" | "double" | "triple" | "homerun";
@@ -75,6 +74,7 @@ type Step =
   | { id: "errorPos" }
   | { id: "otherKind" }
   | { id: "sacrificeKind" }
+  | { id: "sacrificeFlyPos" }
   | { id: "fcPos" };
 
 function PositionGrid({ onPick }: { onPick: (pos: FieldingPosition) => void }) {
@@ -122,6 +122,7 @@ export function AtBatResultFlow({
       if (s.id === "outPos") return { id: "outKind" };
       if (s.id === "sacrificeKind" || s.id === "fcPos")
         return { id: "otherKind" };
+      if (s.id === "sacrificeFlyPos") return { id: "sacrificeKind" };
       return { id: "category" };
     });
   }, []);
@@ -201,7 +202,15 @@ export function AtBatResultFlow({
   };
 
   const handleSacrifice = (detail: string) => {
-    onSubmit(detail.includes("犠飛") ? "sacrificeFly" : "sacrifice", detail);
+    if (detail.includes("犠飛")) {
+      setStep({ id: "sacrificeFlyPos" });
+      return;
+    }
+    onSubmit("sacrifice", detail);
+  };
+
+  const handleSacrificeFlyPos = (pos: FieldingPosition) => {
+    onSubmit("sacrificeFly", buildSacrificeFlyDetail(pos));
   };
 
   const handleFcPos = (pos: FieldingPosition) => {
@@ -230,6 +239,8 @@ export function AtBatResultFlow({
         return "その他";
       case "sacrificeKind":
         return "犠打の種類";
+      case "sacrificeFlyPos":
+        return "犠飛の方向";
       case "fcPos":
         return "野選の守備位置";
       default:
@@ -243,6 +254,14 @@ export function AtBatResultFlow({
         <p className="text-xs font-medium text-muted-foreground">
           {titleForStep()}
         </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-12 w-full text-sm font-bold touch-manipulation"
+          onClick={() => onSubmit("strikeout")}
+        >
+          三振
+        </Button>
         <div className="grid grid-cols-3 gap-2">
           {CATEGORIES.slice(0, 3).map(({ id, label, variant }) => (
             <Button
@@ -589,6 +608,27 @@ export function AtBatResultFlow({
           <span className="text-sm font-semibold">{titleForStep()}</span>
         </div>
         <PositionGrid onPick={handleFcPos} />
+      </div>
+    );
+  }
+
+  if (step.id === "sacrificeFlyPos") {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 px-3"
+            onClick={goBack}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            戻る
+          </Button>
+          <span className="text-sm font-semibold">{titleForStep()}</span>
+        </div>
+        <PositionGrid onPick={handleSacrificeFlyPos} />
       </div>
     );
   }

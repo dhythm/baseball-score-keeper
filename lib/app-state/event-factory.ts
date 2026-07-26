@@ -1,19 +1,22 @@
 import type {
   AtBatEvent,
-  AtBatResult as DomainAtBatResult,
+  AtBatResult,
   BaseRunningEvent,
   BaseRunningType,
   BattedBall,
   FieldingPosition,
   GameControlEvent,
+  GameNoteEvent,
   RunnerMovement,
   Runners,
   SubstitutionEvent,
   SubstitutionRole,
   TeamSide,
 } from "../domain/types";
-import type { AtBatResult as LegacyAtBatResult } from "../types";
-import { getDefaultMovements } from "../domain/rules";
+import {
+  getDefaultMovements,
+  normalizeAtBatResultFromMovements,
+} from "../domain/rules";
 
 const positionByLabel: Record<string, FieldingPosition> = {
   投: "pitcher",
@@ -28,11 +31,9 @@ const positionByLabel: Record<string, FieldingPosition> = {
 };
 
 export function mapAtBatSelectionResult(
-  result: LegacyAtBatResult,
+  result: AtBatResult,
   detail: string
-): DomainAtBatResult {
-  if (result === "strikeout") return "strikeoutSwinging";
-  if (result === "doublePlay") return "otherOut";
+): AtBatResult {
   if (result === "sacrifice" && detail.includes("犠飛")) {
     return "sacrificeFly";
   }
@@ -46,7 +47,7 @@ export function mapAtBatSelectionResult(
 }
 
 export function getDefaultMovementsForSelection(
-  result: LegacyAtBatResult,
+  result: AtBatResult,
   detail: string | undefined,
   runners: Runners,
   batterId: string,
@@ -78,7 +79,7 @@ export function getDefaultMovementsForSelection(
 }
 
 function parseBattedBall(
-  result: DomainAtBatResult,
+  result: AtBatResult,
   detail: string
 ): BattedBall | undefined {
   const position = positionByLabel[detail[0]];
@@ -89,6 +90,7 @@ function parseBattedBall(
   if (result === "sacrifice") return { position, type: "bunt" };
   if (
     result === "groundOut" ||
+    result === "doublePlay" ||
     result === "fieldersChoice" ||
     result === "error" ||
     result === "otherOut" ||
@@ -111,12 +113,13 @@ export function createAtBatEvent({
 }: {
   id: string;
   batterId: string;
-  result: LegacyAtBatResult;
+  result: AtBatResult;
   detail?: string;
   movements: RunnerMovement[];
 }): AtBatEvent {
   const note = detail?.trim() ?? "";
-  const result = mapAtBatSelectionResult(legacyResult, note);
+  const selectedResult = mapAtBatSelectionResult(legacyResult, note);
+  const result = normalizeAtBatResultFromMovements(selectedResult, movements);
   const battedBall = parseBattedBall(result, note);
   return {
     id,
@@ -184,5 +187,19 @@ export function createGameControlEvent({
     kind: "gameControl",
     action: "endGame",
     ...(reason ? { reason } : {}),
+  };
+}
+
+export function createGameNoteEvent({
+  id,
+  text,
+}: {
+  id: string;
+  text: string;
+}): GameNoteEvent {
+  return {
+    id,
+    kind: "note",
+    text: text.trim(),
   };
 }

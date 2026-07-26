@@ -8,6 +8,7 @@ import {
   formatEventNotation,
   formatFieldingPosition,
   formatGameControlNotation,
+  formatGameNoteNotation,
   formatSubstitutionNotation,
 } from "./notation";
 
@@ -31,8 +32,40 @@ describe("at-bat notation", () => {
     expect(formatFieldingPosition("dh")).toBe("指");
   });
 
-  it("renders a legacy unspecialized strikeout as 三振", () => {
+  it("renders an unspecialized strikeout as 三振", () => {
     expect(formatAtBatResult("strikeout")).toBe("三振");
+  });
+
+  it("keeps dedicated double-play notation", () => {
+    expect(
+      formatAtBatNotation(
+        atBat("doublePlay", { position: "short", type: "ground" })
+      )
+    ).toBe("遊併");
+  });
+
+  it("shows a legacy ground-out event with two outs as a double play", () => {
+    const event = atBat("groundOut", {
+      position: "second",
+      type: "ground",
+    });
+    event.movements = [
+      {
+        playerId: "runner",
+        from: "first",
+        to: "out",
+        isRBI: false,
+        outType: "force",
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ];
+
+    expect(formatAtBatNotation(event)).toBe("二併");
   });
 
   it("distinguishes swinging and looking strikeouts", () => {
@@ -119,6 +152,17 @@ describe("base-running notation", () => {
 });
 
 describe("game-management notation", () => {
+  it("formats a game note without assigning it to a player", () => {
+    const event = {
+      id: "note",
+      kind: "note",
+      text: "雨天のため10分間中断",
+    } as const;
+
+    expect(formatGameNoteNotation(event)).toBe("メモ: 雨天のため10分間中断");
+    expect(formatEventNotation(event)).toBe("メモ: 雨天のため10分間中断");
+  });
+
   it("formats each substitution role without parsing free text", () => {
     const baseEvent = {
       id: "change",

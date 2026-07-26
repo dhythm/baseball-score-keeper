@@ -3,13 +3,13 @@ import type {
   GameConfig,
   GameEvent,
   ReplayResult,
-  RunnerMovement,
   Snapshot,
   SubstitutionEvent,
   TeamSide,
   TimelineEntry,
   Violation,
 } from "./types";
+import { evaluateMovementOutcome } from "./runner-advance";
 
 const EMPTY_RUNNERS = {
   first: null,
@@ -193,6 +193,30 @@ function validateEvent(
       ...violations,
       ...validateSubstitution(event, eventIndex, snapshot, config),
     ];
+  }
+  if (event.kind === "note") {
+    if (event.text.trim().length === 0) {
+      violations.push(
+        violation(
+          event,
+          eventIndex,
+          "EMPTY_GAME_NOTE",
+          "error",
+          "game note must not be blank"
+        )
+      );
+    } else if (Array.from(event.text).length > 120) {
+      violations.push(
+        violation(
+          event,
+          eventIndex,
+          "GAME_NOTE_TOO_LONG",
+          "error",
+          "game note must not exceed 120 characters"
+        )
+      );
+    }
+    return violations;
   }
   if (event.kind === "gameControl") return violations;
 
@@ -548,6 +572,26 @@ export function replay(
 
     const team = eventTeam(event, snapshot);
 
+    if (event.kind === "note") {
+      const after = copySnapshot(snapshot);
+      timeline.push({
+        event,
+        index,
+        inning: before.inning,
+        half: before.half,
+        team,
+        outsBefore: before.outs,
+        outsAfter: before.outs,
+        outsRecorded: 0,
+        runsScored: 0,
+        scoringMovements: [],
+        applied: true,
+        before,
+        after,
+      });
+      continue;
+    }
+
     if (event.kind === "gameControl") {
       snapshot.gameStatus = "finished";
       snapshot.gameEndReason = "manual";
@@ -610,31 +654,16 @@ export function replay(
       if (movement.from !== "batter") nextRunners[movement.from] = null;
     }
 
-    let outsRecorded = 0;
-    const scoringMovements: RunnerMovement[] = [];
-    const outsNeededToEndHalf = 3 - snapshot.outs;
-    const halfEndingOut = event.movements.filter(
-      (movement) => movement.to === "out"
-    )[outsNeededToEndHalf - 1];
-    const batterMakesHalfEndingOut =
-      event.kind === "atBat" &&
-      halfEndingOut?.from === "batter" &&
-      halfEndingOut.playerId === event.batterId;
-    const forcePlayMakesHalfEndingOut = halfEndingOut?.outType === "force";
+    const { outsRecorded, scoringMovements } = evaluateMovementOutcome({
+      currentOuts: snapshot.outs,
+      movements: event.movements,
+      ...(event.kind === "atBat" ? { batterId: event.batterId } : {}),
+    });
 
     for (const movement of event.movements) {
-      if (movement.to === "out") {
-        if (snapshot.outs + outsRecorded < 3) outsRecorded += 1;
-      } else if (movement.to === "home") {
-        if (snapshot.outs + outsRecorded < 3) {
-          scoringMovements.push(movement);
-        }
-      } else {
+      if (movement.to !== "out" && movement.to !== "home") {
         nextRunners[movement.to] = movement.playerId;
       }
-    }
-    if (batterMakesHalfEndingOut || forcePlayMakesHalfEndingOut) {
-      scoringMovements.length = 0;
     }
 
     snapshot.runners = nextRunners;

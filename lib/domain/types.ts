@@ -23,8 +23,10 @@ export type AtBatResult =
   | "homerun"
   | "groundOut"
   | "flyOut"
+  | "strikeout"
   | "strikeoutSwinging"
   | "strikeoutLooking"
+  | "doublePlay"
   | "otherOut"
   | "walk"
   | "hitByPitch"
@@ -92,6 +94,10 @@ export interface AtBatEvent {
   result: AtBatResult;
   battedBall?: BattedBall;
   note?: string;
+  /**
+   * Runner outcomes in chronological play order. On a tag third out, this
+   * order determines whether a preceding run scores.
+   */
   movements: RunnerMovement[];
 }
 
@@ -99,6 +105,7 @@ export interface BaseRunningEvent {
   id: string;
   kind: "baseRunning";
   type: BaseRunningType;
+  /** Runner outcomes in chronological play order. */
   movements: RunnerMovement[];
   rbiCreditBatterId?: string;
 }
@@ -122,8 +129,18 @@ export interface GameControlEvent {
   reason?: string;
 }
 
+export interface GameNoteEvent {
+  id: string;
+  kind: "note";
+  text: string;
+}
+
 export type GameEvent =
-  AtBatEvent | BaseRunningEvent | SubstitutionEvent | GameControlEvent;
+  | AtBatEvent
+  | BaseRunningEvent
+  | SubstitutionEvent
+  | GameControlEvent
+  | GameNoteEvent;
 
 type GameEndReason =
   "homeAheadAfterTop" | "walkOff" | "completedHalf" | "manual";
@@ -169,6 +186,8 @@ type ViolationCode =
   | "BACKWARD_MOVEMENT"
   | "INVALID_RBI"
   | "OUTS_EXCEED_HALF_INNING"
+  | "EMPTY_GAME_NOTE"
+  | "GAME_NOTE_TOO_LONG"
   | "SUBSTITUTION_PLAYER_NOT_ON_TEAM"
   | "SUBSTITUTION_OUT_PLAYER_NOT_ACTIVE"
   | "SUBSTITUTION_IN_PLAYER_ALREADY_ACTIVE"

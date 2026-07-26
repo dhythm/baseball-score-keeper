@@ -3,7 +3,11 @@ import type { GameEvent, Violation } from "../domain/types";
 import type { PersistedGameV2 } from "../storage/local-storage";
 import type { AppGame, AppGameState, GameAction } from "./types";
 
-function deriveGame(game: PersistedGameV2, manualEnded?: boolean): AppGame {
+function deriveGame(
+  game: PersistedGameV2,
+  manualEnded?: boolean,
+  redoEvent: GameEvent | null = null
+): AppGame {
   const replayResult = replay(game.events, game.config);
   const inferredManualEnd =
     game.status === "finished" &&
@@ -19,6 +23,7 @@ function deriveGame(game: PersistedGameV2, manualEnded?: boolean): AppGame {
     date: game.date,
     config: game.config,
     events: game.events,
+    redoEvent,
     manualEnded: isManuallyEnded,
     status,
     currentState: replayResult.snapshot,
@@ -168,12 +173,16 @@ export function gameReducer(
       if (!state || state.events.length === 0) return state;
       return deriveGame(
         persistedInput(state, state.events.slice(0, -1)),
-        state.manualEnded
+        state.manualEnded,
+        state.events.at(-1) ?? null
       );
 
-    case "END_GAME":
-      if (!state) return null;
-      return { ...state, manualEnded: true, status: "finished" };
+    case "REDO_LAST_EVENT":
+      if (!state?.redoEvent) return state;
+      return deriveGame(
+        persistedInput(state, [...state.events, state.redoEvent]),
+        state.manualEnded
+      );
 
     case "RESUME_GAME":
       if (!state) return null;

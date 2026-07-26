@@ -7,6 +7,19 @@ import type {
   Violation,
 } from "./types";
 
+export function normalizeAtBatResultFromMovements(
+  result: AtBatResult,
+  movements: readonly RunnerMovement[]
+): AtBatResult {
+  if (
+    result === "groundOut" &&
+    movements.filter((movement) => movement.to === "out").length >= 2
+  ) {
+    return "doublePlay";
+  }
+  return result;
+}
+
 interface DefaultMovementContext {
   battedBall?: BattedBall;
   isInfieldHit?: boolean;
@@ -189,6 +202,9 @@ export function getDefaultMovements(
       if (runners.third) {
         movements.push(move(runners.third, "third", "home", true));
       }
+      if (runners.second) {
+        movements.push(move(runners.second, "second", "third"));
+      }
       movements.push(move(batterId, "batter", "out"));
       return movements;
     }
@@ -207,8 +223,10 @@ export function getDefaultMovements(
 
     case "groundOut":
     case "flyOut":
+    case "strikeout":
     case "strikeoutSwinging":
     case "strikeoutLooking":
+    case "doublePlay":
     case "otherOut":
       return [move(batterId, "batter", "out")];
   }

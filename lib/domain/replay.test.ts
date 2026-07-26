@@ -5,6 +5,7 @@ import type {
   AtBatEvent,
   GameConfig,
   GameEvent,
+  GameNoteEvent,
   Player,
   RunnerMovement,
   SubstitutionEvent,
@@ -99,6 +100,55 @@ describe("replay", () => {
       gameStatus: "live",
     });
     expect(result.timeline).toEqual([]);
+    expect(result.violations).toEqual([]);
+  });
+
+  it("records a game note in the timeline without changing game state", () => {
+    const event: GameNoteEvent = {
+      id: "rain-delay",
+      kind: "note",
+      text: "雨天のため10分間中断",
+    };
+
+    const result = replay([event], config());
+
+    expect(result.violations).toEqual([]);
+    expect(result.timeline[0]).toMatchObject({
+      event,
+      inning: 1,
+      half: "top",
+      team: "away",
+      outsBefore: 0,
+      outsAfter: 0,
+      outsRecorded: 0,
+      runsScored: 0,
+      scoringMovements: [],
+      applied: true,
+    });
+    expect(result.timeline[0].after).toEqual(result.timeline[0].before);
+    expect(result.snapshot).toEqual(replay([], config()).snapshot);
+  });
+
+  it.each([
+    ["blank", "   ", "EMPTY_GAME_NOTE"],
+    ["over 120 characters", "あ".repeat(121), "GAME_NOTE_TOO_LONG"],
+  ])("rejects a %s game note", (_label, text, code) => {
+    const result = replay([{ id: "note", kind: "note", text }], config());
+
+    expect(result.timeline[0]).toMatchObject({ applied: false });
+    expect(result.timeline[0].after).toEqual(result.timeline[0].before);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({ code, eventId: "note", severity: "error" })
+    );
+  });
+
+  it("accepts a game note containing exactly 120 characters", () => {
+    const result = replay(
+      [{ id: "note", kind: "note", text: "あ".repeat(120) }],
+      config()
+    );
+
+    expect(result.timeline[0]).toMatchObject({ applied: true });
     expect(result.violations).toEqual([]);
   });
 

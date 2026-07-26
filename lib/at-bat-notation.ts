@@ -1,5 +1,5 @@
-import type { AtBatResult, FieldingPosition } from "./types";
-import { FIELDING_POSITION_SCOREBOOK } from "./types";
+import type { AtBatResult, FieldingPosition } from "./domain/types";
+import { formatFieldingPosition } from "./domain/notation";
 
 /** Positions that can appear in scorebook direction / 誰が（DH 除く）。 */
 export const FIELDING_POSITIONS_FOR_PLAY: FieldingPosition[] = [
@@ -15,7 +15,7 @@ export const FIELDING_POSITIONS_FOR_PLAY: FieldingPosition[] = [
 ];
 
 export function fieldingPosLabel(pos: FieldingPosition): string {
-  return FIELDING_POSITION_SCOREBOOK[pos];
+  return formatFieldingPosition(pos);
 }
 
 export function buildHitDetail(
@@ -47,6 +47,10 @@ export function buildErrorDetail(pos: FieldingPosition): string {
 
 export function buildFieldersChoiceDetail(pos: FieldingPosition): string {
   return `${fieldingPosLabel(pos)}野選`;
+}
+
+export function buildSacrificeFlyDetail(pos: FieldingPosition): string {
+  return `${fieldingPosLabel(pos)}犠飛`;
 }
 
 /** Hits whose notation does not need a fielding-direction step. */

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type {
   AtBatEvent,
+  BaseRunningEvent,
+  RunnerMovement,
   Snapshot,
   SubstitutionEvent,
   TimelineEntry,
@@ -48,6 +50,56 @@ function entry(
     applied: true,
     before: snapshot,
     after: snapshot,
+  };
+}
+
+function movement(
+  playerId: string,
+  from: RunnerMovement["from"],
+  to: RunnerMovement["to"]
+): RunnerMovement {
+  return { playerId, from, to, isRBI: false };
+}
+
+function entryWithMovements({
+  id,
+  result,
+  movements,
+  scoringMovements = [],
+  outsRecorded = 0,
+  outsAfter = outsRecorded,
+  after = snapshot,
+}: {
+  id: string;
+  result: AtBatEvent["result"];
+  movements: RunnerMovement[];
+  scoringMovements?: RunnerMovement[];
+  outsRecorded?: number;
+  outsAfter?: number;
+  after?: Snapshot;
+}): TimelineEntry {
+  const base = entry(id, "away", result, outsRecorded, scoringMovements.length);
+  const event: AtBatEvent = {
+    id,
+    kind: "atBat",
+    batterId: id,
+    result,
+    movements,
+  };
+  return {
+    ...base,
+    event,
+    outsAfter,
+    scoringMovements,
+    after,
+  };
+}
+
+function substitutionEntry(event: SubstitutionEvent): TimelineEntry {
+  return {
+    ...entry(event.id, "away", "otherOut"),
+    event,
+    outsRecorded: 0,
   };
 }
 
@@ -183,6 +235,293 @@ describe("getStartingPitcherStats", () => {
         role: "starter",
         outs: 1,
       }),
+    ]);
+  });
+
+  it("charges a starter for an inherited runner who scores off a reliever", () => {
+    const pitchingChange: SubstitutionEvent = {
+      id: "pitching-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const inheritedRun = movement("starter-runner", "first", "home");
+
+    expect(
+      getPitcherStats(
+        [
+          entryWithMovements({
+            id: "starter-runner",
+            result: "single",
+            movements: [movement("starter-runner", "batter", "first")],
+          }),
+          substitutionEntry(pitchingChange),
+          entryWithMovements({
+            id: "reliever-batter",
+            result: "double",
+            movements: [
+              inheritedRun,
+              movement("reliever-batter", "batter", "second"),
+            ],
+            scoringMovements: [inheritedRun],
+          }),
+        ],
+        "home",
+        "starter"
+      )
+    ).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 1 }),
+      expect.objectContaining({ pitcherId: "reliever", runsAllowed: 0 }),
+    ]);
+  });
+
+  it("keeps responsibility with the original pitcher after a pinch runner enters", () => {
+    const pitchingChange: SubstitutionEvent = {
+      id: "pitching-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const pinchRunner: SubstitutionEvent = {
+      id: "pinch-runner",
+      kind: "substitution",
+      team: "away",
+      inPlayerId: "pinch-runner",
+      outPlayerId: "starter-runner",
+      role: "pinchRunner",
+    };
+    const inheritedRun = movement("pinch-runner", "first", "home");
+
+    const stats = getPitcherStats(
+      [
+        entryWithMovements({
+          id: "starter-runner",
+          result: "walk",
+          movements: [movement("starter-runner", "batter", "first")],
+        }),
+        substitutionEntry(pitchingChange),
+        substitutionEntry(pinchRunner),
+        entryWithMovements({
+          id: "reliever-batter",
+          result: "single",
+          movements: [
+            inheritedRun,
+            movement("reliever-batter", "batter", "first"),
+          ],
+          scoringMovements: [inheritedRun],
+        }),
+      ],
+      "home",
+      "starter"
+    );
+
+    expect(stats).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 1 }),
+      expect.objectContaining({ pitcherId: "reliever", runsAllowed: 0 }),
+    ]);
+  });
+
+  it("charges a reliever for a runner the reliever allowed to reach base", () => {
+    const pitchingChange: SubstitutionEvent = {
+      id: "pitching-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const relieverRun = movement("reliever-runner", "first", "home");
+
+    const stats = getPitcherStats(
+      [
+        substitutionEntry(pitchingChange),
+        entryWithMovements({
+          id: "reliever-runner",
+          result: "walk",
+          movements: [movement("reliever-runner", "batter", "first")],
+        }),
+        entryWithMovements({
+          id: "next-batter",
+          result: "double",
+          movements: [relieverRun, movement("next-batter", "batter", "second")],
+          scoringMovements: [relieverRun],
+        }),
+      ],
+      "home",
+      "starter"
+    );
+
+    expect(stats).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 0 }),
+      expect.objectContaining({ pitcherId: "reliever", runsAllowed: 1 }),
+    ]);
+  });
+
+  it("attributes runners independently across multiple pitching changes", () => {
+    const firstChange: SubstitutionEvent = {
+      id: "first-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever-1",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const secondChange: SubstitutionEvent = {
+      ...firstChange,
+      id: "second-change",
+      inPlayerId: "reliever-2",
+      outPlayerId: "reliever-1",
+    };
+    const starterRun = movement("starter-runner", "second", "home");
+    const firstRelieverRun = movement("first-reliever-runner", "first", "home");
+
+    const stats = getPitcherStats(
+      [
+        entryWithMovements({
+          id: "starter-runner",
+          result: "double",
+          movements: [movement("starter-runner", "batter", "second")],
+        }),
+        substitutionEntry(firstChange),
+        entryWithMovements({
+          id: "first-reliever-runner",
+          result: "walk",
+          movements: [
+            movement("starter-runner", "second", "third"),
+            movement("first-reliever-runner", "batter", "first"),
+          ],
+        }),
+        substitutionEntry(secondChange),
+        entryWithMovements({
+          id: "second-reliever-batter",
+          result: "double",
+          movements: [
+            starterRun,
+            firstRelieverRun,
+            movement("second-reliever-batter", "batter", "second"),
+          ],
+          scoringMovements: [starterRun, firstRelieverRun],
+        }),
+      ],
+      "home",
+      "starter"
+    );
+
+    expect(stats).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 1 }),
+      expect.objectContaining({ pitcherId: "reliever-1", runsAllowed: 1 }),
+      expect.objectContaining({ pitcherId: "reliever-2", runsAllowed: 0 }),
+    ]);
+  });
+
+  it("forgets pitcher responsibility when a runner is put out", () => {
+    const runnerOut: BaseRunningEvent = {
+      id: "runner-out",
+      kind: "baseRunning",
+      type: "caughtStealing",
+      movements: [movement("same-player", "first", "out")],
+    };
+    const runnerOutEntry: TimelineEntry = {
+      ...entry("runner-out-placeholder", "away", "otherOut", 1),
+      event: runnerOut,
+    };
+    const pitchingChange: SubstitutionEvent = {
+      id: "pitching-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const relieverRun = movement("same-player", "first", "home");
+
+    const stats = getPitcherStats(
+      [
+        entryWithMovements({
+          id: "same-player",
+          result: "single",
+          movements: [movement("same-player", "batter", "first")],
+        }),
+        runnerOutEntry,
+        substitutionEntry(pitchingChange),
+        entryWithMovements({
+          id: "same-player",
+          result: "walk",
+          movements: [movement("same-player", "batter", "first")],
+        }),
+        entryWithMovements({
+          id: "next-batter",
+          result: "double",
+          movements: [relieverRun, movement("next-batter", "batter", "second")],
+          scoringMovements: [relieverRun],
+        }),
+      ],
+      "home",
+      "starter"
+    );
+
+    expect(stats).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 0 }),
+      expect.objectContaining({ pitcherId: "reliever", runsAllowed: 1 }),
+    ]);
+  });
+
+  it("clears stale responsibility when the half-inning ends", () => {
+    const nextHalfSnapshot: Snapshot = {
+      ...snapshot,
+      inning: 1,
+      half: "bottom",
+    };
+    const halfEndingOut = entryWithMovements({
+      id: "half-ending-batter",
+      result: "groundOut",
+      movements: [movement("half-ending-batter", "batter", "out")],
+      outsRecorded: 1,
+      outsAfter: 3,
+      after: nextHalfSnapshot,
+    });
+    const pitchingChange: SubstitutionEvent = {
+      id: "pitching-change",
+      kind: "substitution",
+      team: "home",
+      inPlayerId: "reliever",
+      outPlayerId: "starter",
+      role: "pitcher",
+    };
+    const relieverRun = movement("same-player", "first", "home");
+
+    const stats = getPitcherStats(
+      [
+        entryWithMovements({
+          id: "same-player",
+          result: "single",
+          movements: [movement("same-player", "batter", "first")],
+        }),
+        halfEndingOut,
+        substitutionEntry(pitchingChange),
+        entryWithMovements({
+          id: "same-player",
+          result: "walk",
+          movements: [movement("same-player", "batter", "first")],
+        }),
+        entryWithMovements({
+          id: "next-batter",
+          result: "double",
+          movements: [relieverRun, movement("next-batter", "batter", "second")],
+          scoringMovements: [relieverRun],
+        }),
+      ],
+      "home",
+      "starter"
+    );
+
+    expect(stats).toEqual([
+      expect.objectContaining({ pitcherId: "starter", runsAllowed: 0 }),
+      expect.objectContaining({ pitcherId: "reliever", runsAllowed: 1 }),
     ]);
   });
 });

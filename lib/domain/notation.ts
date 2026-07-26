@@ -7,13 +7,14 @@ import type {
   FieldingPosition,
   GameEvent,
   GameControlEvent,
+  GameNoteEvent,
   RunnerDestination,
   RunnerMovement,
   SubstitutionEvent,
 } from "./types";
+import { normalizeAtBatResultFromMovements } from "./rules";
 
-type LegacyAtBatResult = "strikeout";
-export type NotationAtBatResult = AtBatResult | LegacyAtBatResult;
+export type NotationAtBatResult = AtBatResult;
 
 const POSITION_SHORT: Record<FieldingPosition, string> = {
   pitcher: "投",
@@ -61,6 +62,8 @@ export function formatAtBatResult(
       return "空三振";
     case "strikeoutLooking":
       return "見三振";
+    case "doublePlay":
+      return position ? `${position}併` : "併殺";
     case "otherOut":
       return "アウト";
     case "walk":
@@ -83,9 +86,12 @@ export function formatAtBatResult(
 }
 
 export function formatAtBatNotation(
-  event: Pick<AtBatEvent, "result" | "battedBall">
+  event: Pick<AtBatEvent, "result" | "battedBall" | "movements">
 ): string {
-  return formatAtBatResult(event.result, event.battedBall);
+  return formatAtBatResult(
+    normalizeAtBatResultFromMovements(event.result, event.movements),
+    event.battedBall
+  );
 }
 
 const BASE_LABEL: Record<Base, string> = {
@@ -149,9 +155,17 @@ export function formatEventNotation(event: GameEvent): string {
       return formatBaseRunningNotation(event);
     case "substitution":
       return formatSubstitutionNotation(event);
+    case "note":
+      return formatGameNoteNotation(event);
     case "gameControl":
       return formatGameControlNotation(event);
   }
+}
+
+export function formatGameNoteNotation(
+  event: Pick<GameNoteEvent, "text">
+): string {
+  return `メモ: ${event.text}`;
 }
 
 export function formatSubstitutionNotation(

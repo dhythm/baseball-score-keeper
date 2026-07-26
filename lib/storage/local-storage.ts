@@ -1,8 +1,8 @@
 import type {
-  AtBatResult as LegacyAtBatResult,
-  Game as LegacyGame,
-  GameEvent as LegacyGameEvent,
-} from "../types";
+  LegacyAtBatResult,
+  LegacyGame,
+  LegacyGameEvent,
+} from "./legacy-v1-types";
 import type {
   AtBatEvent,
   AtBatResult,
@@ -72,11 +72,11 @@ const LEGACY_RESULT_MAP: Record<LegacyAtBatResult, AtBatResult> = {
   homerun: "homerun",
   groundOut: "groundOut",
   flyOut: "flyOut",
-  strikeout: "strikeoutSwinging",
+  strikeout: "strikeout",
   strikeoutSwinging: "strikeoutSwinging",
   strikeoutLooking: "strikeoutLooking",
   uncaughtThirdStrike: "uncaughtThirdStrike",
-  doublePlay: "otherOut",
+  doublePlay: "doublePlay",
   otherOut: "otherOut",
   walk: "walk",
   hitByPitch: "hitByPitch",
@@ -142,6 +142,7 @@ function parseBattedBall(
 
   if (
     result === "groundOut" ||
+    result === "doublePlay" ||
     result === "fieldersChoice" ||
     result === "error" ||
     result === "sacrifice" ||
@@ -328,6 +329,9 @@ function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
         )
       );
     }
+    if (event.kind === "note") {
+      return typeof event.text === "string";
+    }
     return (
       event.kind === "gameControl" &&
       event.action === "endGame" &&
@@ -356,8 +360,10 @@ const AT_BAT_RESULTS = new Set([
   "homerun",
   "groundOut",
   "flyOut",
+  "strikeout",
   "strikeoutSwinging",
   "strikeoutLooking",
+  "doublePlay",
   "otherOut",
   "walk",
   "hitByPitch",

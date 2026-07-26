@@ -22,8 +22,8 @@ import {
   syncNonLineupStartingPitcher,
   syncStartingPitcher,
 } from "@/lib/game-utils";
-import type { FieldingPosition, Player, Team } from "@/lib/types";
-import { FIELDING_POSITION_LABELS } from "@/lib/types";
+import type { FieldingPosition, Player, Team } from "@/lib/domain/types";
+import { FIELDING_POSITION_LABELS } from "@/lib/domain/catalog";
 import { cn } from "@/lib/utils";
 import { shouldShowDevelopmentTools } from "@/lib/development-mode";
 import { gamePath } from "@/lib/app-state/routes";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,13 @@ import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
 import { BaseRunningEditDialog } from "@/components/base-running-edit-dialog";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 import { getPlayerInningEntries } from "@/lib/app-state/timeline-selectors";
+import { getInningColumnScrollLeft } from "@/components/batting-order-scroll";
 
 interface BattingOrderPanelProps {
   game: AppGame;
 }
+
+const STICKY_ORDER_COLUMNS_WIDTH = 112;
 
 function OrderList({
   game,
@@ -28,6 +31,7 @@ function OrderList({
   isBattingTeam: boolean;
   onEditAtBat: (eventId: string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const team = game.teams[teamSide];
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
   const activePlayerIds = game.currentState.activeLineup[teamSide];
@@ -56,7 +60,24 @@ function OrderList({
   ];
 
   const inningCount = getEffectiveInningCount(game);
+  const currentInning = game.currentState.inning;
   const halfForTeam = teamSide === "away" ? "top" : "bottom";
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    const target = container?.querySelector<HTMLElement>(
+      `[data-inning-column="${currentInning}"]`
+    );
+    if (!container || !target) return;
+
+    container.scrollLeft = getInningColumnScrollLeft({
+      containerWidth: container.clientWidth,
+      stickyWidth: STICKY_ORDER_COLUMNS_WIDTH,
+      targetOffsetLeft: target.offsetLeft,
+      targetWidth: target.offsetWidth,
+      maxScrollLeft: container.scrollWidth - container.clientWidth,
+    });
+  }, [currentInning]);
 
   /** sticky 列に半透明の bg-* を使うと、横スクロールの下のセルが透けて見えるため不透明にする */
   const stickyThBg = "bg-muted";
@@ -73,6 +94,7 @@ function OrderList({
 
   return (
     <div
+      ref={scrollRef}
       className="isolate overflow-x-auto rounded-xl border border-border bg-card touch-pan-x"
       aria-label={`${team.name || (teamSide === "away" ? "先攻" : "後攻")}の打順`}
     >
@@ -106,6 +128,7 @@ function OrderList({
                 <th
                   key={inningNum}
                   scope="col"
+                  data-inning-column={inningNum}
                   className={cn(
                     thInning,
                     isLiveColumn && "bg-accent/25 text-accent-foreground"
@@ -207,7 +230,7 @@ function OrderList({
                                 key={event.id}
                                 type="button"
                                 className={cn(
-                                  "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
+                                  "min-h-11 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
                                   event.kind === "atBat"
                                     ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                                     : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"

@@ -132,12 +132,43 @@ describe("app-state gameReducer", () => {
     expect(undone?.currentState.outs).toBe(0);
   });
 
-  it("keeps manual game end separate from replay and resumes explicitly", () => {
+  it("redoes the last undone event and restores its derived state", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1"), out("second", "away-2")]),
+    });
+    const undone = gameReducer(loaded, { type: "UNDO_LAST_EVENT" });
+    const redone = gameReducer(undone, { type: "REDO_LAST_EVENT" });
+
+    expect(undone?.events.map(({ id }) => id)).toEqual(["first"]);
+    expect(undone?.currentState.outs).toBe(1);
+    expect(redone?.events.map(({ id }) => id)).toEqual(["first", "second"]);
+    expect(redone?.currentState.outs).toBe(2);
+    expect(redone?.redoEvent).toBeNull();
+  });
+
+  it("discards the redo event after recording a different event", () => {
     const loaded = gameReducer(null, {
       type: "LOAD_GAME",
       game: persistedGame([out("first", "away-1")]),
     });
-    const ended = gameReducer(loaded, { type: "END_GAME" });
+    const undone = gameReducer(loaded, { type: "UNDO_LAST_EVENT" });
+    const changed = gameReducer(undone, {
+      type: "ADD_EVENT",
+      event: homeRun("replacement", "away-1"),
+    });
+    const redoAttempt = gameReducer(changed, { type: "REDO_LAST_EVENT" });
+
+    expect(changed?.events.map(({ id }) => id)).toEqual(["replacement"]);
+    expect(changed?.redoEvent).toBeNull();
+    expect(redoAttempt).toBe(changed);
+  });
+
+  it("keeps manual game end separate from replay and resumes explicitly", () => {
+    const ended = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1")], "finished"),
+    });
     const undone = gameReducer(ended, { type: "UNDO_LAST_EVENT" });
     const resumed = gameReducer(undone, { type: "RESUME_GAME" });
 

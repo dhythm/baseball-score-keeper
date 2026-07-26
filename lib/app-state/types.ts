@@ -20,6 +20,8 @@ export interface AppGame {
   date: string;
   config: GameConfig;
   events: GameEvent[];
+  /** One-step, in-memory redo buffer. It is intentionally not persisted. */
+  redoEvent: GameEvent | null;
   manualEnded: boolean;
   status: AppGameStatus;
   currentState: Snapshot;
@@ -48,7 +50,7 @@ export type GameAction =
     }
   | { type: "DELETE_EVENT"; eventId: string }
   | { type: "UNDO_LAST_EVENT" }
-  | { type: "END_GAME" }
+  | { type: "REDO_LAST_EVENT" }
   | { type: "RESUME_GAME" }
   | { type: "RESET_GAME" }
   | { type: "LOAD_GAME"; game: PersistedGameV2 };

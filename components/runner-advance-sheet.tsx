@@ -11,14 +11,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { AtBatResult, Base } from "@/lib/types";
-import type { RunnerMovement, Snapshot } from "@/lib/domain/types";
+import type {
+  AtBatResult,
+  Base,
+  RunnerMovement,
+  Snapshot,
+} from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getCurrentBatter, getPlayerById } from "@/lib/app-state/selectors";
 import { getDefaultMovementsForSelection } from "@/lib/app-state/event-factory";
-import { RESULT_LABELS } from "@/lib/types";
-import { initializeRbiByPlayerId } from "@/lib/domain/runner-advance";
+import { RESULT_LABELS } from "@/lib/domain/catalog";
+import {
+  evaluateMovementOutcome,
+  initializeRbiByPlayerId,
+} from "@/lib/domain/runner-advance";
 import { SituationMiniHeader } from "@/components/situation-mini-header";
+import { getSafeRunnerDestinations } from "@/lib/app-state/runner-options";
+import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react";
 
 type Destination = Base | "home" | "out";
 
@@ -57,6 +66,7 @@ interface RunnerAdvanceSheetProps {
     batterId: string;
   };
   initialMovementsOverride?: RunnerMovement[];
+  onReselectResult?: () => void;
 }
 
 interface RunnerState {
@@ -76,6 +86,7 @@ export function RunnerAdvanceSheet({
   onConfirm,
   context,
   initialMovementsOverride,
+  onReselectResult,
 }: RunnerAdvanceSheetProps) {
   const snapshot = context?.snapshot ?? game.currentState;
   const runners = snapshot.runners;
@@ -104,52 +115,45 @@ export function RunnerAdvanceSheet({
   useEffect(() => {
     if (!open || !currentBatter) return;
 
-    const states: RunnerState[] = [];
-
-    if (runners.third) {
-      const player = getPlayerById(game, runners.third);
-      const defaultMovement = initialMovements.find((m) => m.from === "third");
-      states.push({
-        playerId: runners.third,
+    const stateBySource = new Map<RunnerState["from"], RunnerState>();
+    for (const base of ["third", "second", "first"] as const) {
+      const playerId = runners[base];
+      if (!playerId) continue;
+      const player = getPlayerById(game, playerId);
+      const defaultMovement = initialMovements.find(
+        (movement) => movement.from === base
+      );
+      stateBySource.set(base, {
+        playerId,
         name: player?.name ?? "不明",
-        from: "third",
-        to: defaultMovement?.to ?? "third",
+        from: base,
+        to: defaultMovement?.to ?? base,
         outType: defaultMovement?.outType,
       });
     }
-
-    if (runners.second) {
-      const player = getPlayerById(game, runners.second);
-      const defaultMovement = initialMovements.find((m) => m.from === "second");
-      states.push({
-        playerId: runners.second,
-        name: player?.name ?? "不明",
-        from: "second",
-        to: defaultMovement?.to ?? "second",
-        outType: defaultMovement?.outType,
-      });
-    }
-
-    if (runners.first) {
-      const player = getPlayerById(game, runners.first);
-      const defaultMovement = initialMovements.find((m) => m.from === "first");
-      states.push({
-        playerId: runners.first,
-        name: player?.name ?? "不明",
-        from: "first",
-        to: defaultMovement?.to ?? "first",
-        outType: defaultMovement?.outType,
-      });
-    }
-
-    const batterMovement = initialMovements.find((m) => m.from === "batter");
-    states.push({
+    const batterMovement = initialMovements.find(
+      (movement) => movement.from === "batter"
+    );
+    stateBySource.set("batter", {
       playerId: currentBatter.id,
       name: currentBatter.name,
       from: "batter",
       to: batterMovement?.to ?? "first",
       outType: batterMovement?.outType,
     });
+
+    const orderedSources = [
+      ...initialMovements.map((movement) => movement.from),
+      "third",
+      "second",
+      "first",
+      "batter",
+    ].filter(
+      (source, index, sources): source is RunnerState["from"] =>
+        sources.indexOf(source) === index &&
+        stateBySource.has(source as RunnerState["from"])
+    );
+    const states = orderedSources.map((source) => stateBySource.get(source)!);
 
     setRunnerStates(states);
     setRbiByPlayerId(
@@ -181,10 +185,39 @@ export function RunnerAdvanceSheet({
           ? {
               ...r,
               to,
-              ...(to === r.to ? {} : { outType: undefined }),
+              ...(to === "out" && r.from !== "batter"
+                ? {
+                    outType:
+                      r.outType ??
+                      (result === "fieldersChoice" || result === "doublePlay"
+                        ? "force"
+                        : "tag"),
+                  }
+                : { outType: undefined }),
             }
           : r
       );
+    });
+  };
+
+  const setRunnerOutType = (
+    playerId: string,
+    outType: NonNullable<RunnerMovement["outType"]>
+  ) => {
+    setRunnerStates((current) =>
+      current.map((runner) =>
+        runner.playerId === playerId ? { ...runner, outType } : runner
+      )
+    );
+  };
+
+  const moveRunnerState = (index: number, direction: -1 | 1) => {
+    setRunnerStates((current) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
     });
   };
 
@@ -192,57 +225,44 @@ export function RunnerAdvanceSheet({
     setRbiByPlayerId((prev) => ({ ...prev, [playerId]: value }));
   };
 
-  const getDestinationOptions = (
-    from: "batter" | Base
-  ): { value: Destination; label: string }[] => {
-    const options: { value: Destination; label: string }[] = [];
-
-    if (from === "batter") {
-      options.push({ value: "first", label: "1塁" });
-      if (result === "double") options.push({ value: "second", label: "2塁" });
-      if (result === "triple") options.push({ value: "third", label: "3塁" });
-      if (result === "homerun")
-        options.push({ value: "home", label: "ホーム" });
-      options.push({ value: "out", label: "アウト" });
-    } else {
-      if (from === "first") {
-        options.push({ value: "first", label: "1塁" });
-        options.push({ value: "second", label: "2塁" });
-        options.push({ value: "third", label: "3塁" });
-      }
-      if (from === "second") {
-        options.push({ value: "second", label: "2塁" });
-        options.push({ value: "third", label: "3塁" });
-      }
-      if (from === "third") {
-        options.push({ value: "third", label: "3塁" });
-      }
-      options.push({ value: "home", label: "ホーム" });
-      options.push({ value: "out", label: "アウト" });
-    }
-
-    return options;
-  };
+  const buildMovements = (): RunnerMovement[] =>
+    runnerStates.map((runner) => {
+      const isRBI =
+        runner.to === "home"
+          ? runner.from === "batter" && result === "homerun"
+            ? true
+            : (rbiByPlayerId[runner.playerId] ??
+              defaultRbiWhenScoring(result, runner.from, runner.to))
+          : false;
+      return {
+        playerId: runner.playerId,
+        from: runner.from,
+        to: runner.to,
+        isRBI,
+        ...(runner.to === "out" && runner.outType
+          ? { outType: runner.outType }
+          : {}),
+      };
+    });
 
   const calculatePreview = () => {
-    let runsScored = 0;
-    let outsAdded = 0;
-    const scorers: string[] = [];
-
-    for (const runner of runnerStates) {
-      if (runner.to === "home") {
-        if (outs + outsAdded < 3) {
-          runsScored++;
-          scorers.push(runner.name);
-        }
-      } else if (runner.to === "out") {
-        outsAdded++;
-      }
-    }
-
-    const totalOuts = Math.min(outs + outsAdded, 3);
-
-    return { runsScored, outsAdded, totalOuts, scorers };
+    const movements = buildMovements();
+    const outcome = evaluateMovementOutcome({
+      currentOuts: outs,
+      movements,
+      batterId: currentBatter?.id,
+    });
+    const scorerIds = new Set(
+      outcome.scoringMovements.map((movement) => movement.playerId)
+    );
+    return {
+      runsScored: outcome.scoringMovements.length,
+      outsAdded: outcome.outsRecorded,
+      totalOuts: Math.min(outs + outcome.outsRecorded, 3),
+      scorers: runnerStates
+        .filter((runner) => scorerIds.has(runner.playerId))
+        .map((runner) => runner.name),
+    };
   };
 
   const checkDuplicateBases = () => {
@@ -279,26 +299,7 @@ export function RunnerAdvanceSheet({
   const hasErrors = duplicates.length > 0;
 
   const handleConfirm = () => {
-    const movements: RunnerMovement[] = runnerStates.map((r) => {
-      let isRBI = false;
-      if (r.to === "home") {
-        if (r.from === "batter" && result === "homerun") {
-          isRBI = true;
-        } else {
-          isRBI =
-            rbiByPlayerId[r.playerId] ??
-            defaultRbiWhenScoring(result, r.from, r.to);
-        }
-      }
-      return {
-        playerId: r.playerId,
-        from: r.from,
-        to: r.to,
-        isRBI,
-        ...(r.to === "out" && r.outType ? { outType: r.outType } : {}),
-      };
-    });
-
+    const movements = buildMovements();
     onConfirm(movements, preview.outsAdded, preview.runsScored);
   };
 
@@ -319,9 +320,9 @@ export function RunnerAdvanceSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="left-1/2 right-auto max-h-[88dvh] w-[min(100%,42rem)] -translate-x-1/2 gap-0 overflow-y-auto rounded-t-[1.75rem] border-x border-t bg-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
+        className="left-1/2 right-auto flex max-h-[88dvh] w-[min(100%,42rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-t-[1.75rem] border-x border-t bg-card p-0 shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
       >
-        <SheetHeader className="sticky top-0 z-10 border-b border-border bg-card px-5 py-4">
+        <SheetHeader className="shrink-0 border-b border-border bg-card px-5 py-4">
           <SheetTitle className="text-lg font-extrabold">
             ランナー進塁確認
           </SheetTitle>
@@ -332,7 +333,7 @@ export function RunnerAdvanceSheet({
           />
         </SheetHeader>
 
-        <div className="space-y-6 px-4 py-5 sm:px-5">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
           <div className="rounded-xl bg-secondary/70 px-4 py-3">
             <div>
               <span className="text-sm text-muted-foreground">打席結果: </span>
@@ -343,11 +344,37 @@ export function RunnerAdvanceSheet({
           </div>
 
           <div className="space-y-4">
-            {runnerStates.map((runner) => (
+            {runnerStates.map((runner, runnerIndex) => (
               <div key={runner.playerId} className="space-y-2">
-                <Label className="text-sm font-medium">
-                  {getFromLabel(runner.from)}: {runner.name}
-                </Label>
+                <div className="flex min-h-11 items-center justify-between gap-2">
+                  <Label className="text-sm font-medium">
+                    {getFromLabel(runner.from)}: {runner.name}
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11"
+                      disabled={runnerIndex === 0}
+                      onClick={() => moveRunnerState(runnerIndex, -1)}
+                      aria-label={`${runner.name}のプレー順を前へ`}
+                    >
+                      <ArrowUp className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11"
+                      disabled={runnerIndex === runnerStates.length - 1}
+                      onClick={() => moveRunnerState(runnerIndex, 1)}
+                      aria-label={`${runner.name}のプレー順を後へ`}
+                    >
+                      <ArrowDown className="size-4" />
+                    </Button>
+                  </div>
+                </div>
                 <ToggleGroup
                   type="single"
                   variant="outline"
@@ -360,20 +387,59 @@ export function RunnerAdvanceSheet({
                         value as Destination
                       );
                   }}
-                  className="w-full justify-start"
+                  className="grid w-full grid-cols-4 gap-2"
                 >
-                  {getDestinationOptions(runner.from).map(
-                    ({ value, label }) => (
+                  {getSafeRunnerDestinations(runner.from).map((value) => {
+                    const label =
+                      value === "first"
+                        ? "1塁"
+                        : value === "second"
+                          ? "2塁"
+                          : value === "third"
+                            ? "3塁"
+                            : "ホーム";
+                    return (
                       <ToggleGroupItem
                         key={value}
                         value={value}
-                        className="text-sm font-semibold"
+                        className="min-h-11 text-sm font-semibold"
                       >
                         {label}
                       </ToggleGroupItem>
-                    )
-                  )}
+                    );
+                  })}
                 </ToggleGroup>
+                <Button
+                  type="button"
+                  variant={runner.to === "out" ? "destructive" : "outline"}
+                  className="min-h-11 w-full border-destructive/40 text-sm font-semibold"
+                  onClick={() =>
+                    updateRunnerDestination(runner.playerId, "out")
+                  }
+                >
+                  アウト
+                </Button>
+                {runner.to === "out" && runner.from !== "batter" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["force", "tag"] as const).map((outType) => (
+                      <Button
+                        key={outType}
+                        type="button"
+                        variant={
+                          runner.outType === outType ? "secondary" : "outline"
+                        }
+                        className="min-h-11"
+                        onClick={() =>
+                          setRunnerOutType(runner.playerId, outType)
+                        }
+                      >
+                        {outType === "force"
+                          ? "フォースアウト"
+                          : "タッチアウト"}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 {runner.to === "home" &&
                   !(runner.from === "batter" && result === "homerun") && (
                     <div className="flex items-start gap-2 pt-1">
@@ -427,9 +493,20 @@ export function RunnerAdvanceSheet({
               </span>
             </div>
           </div>
-
+        </div>
+        <div className="grid shrink-0 grid-cols-[1fr_1.35fr] gap-2 border-t border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5">
           <Button
-            className="h-12 w-full text-base font-bold"
+            type="button"
+            variant="outline"
+            className="h-12"
+            disabled={!onReselectResult}
+            onClick={onReselectResult}
+          >
+            <RotateCcw className="size-4" />
+            結果を選び直す
+          </Button>
+          <Button
+            className="h-12 text-base font-bold"
             onClick={handleConfirm}
             disabled={hasErrors}
           >

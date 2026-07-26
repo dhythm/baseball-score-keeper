@@ -12,6 +12,7 @@ import type {
   RunnerMovement,
   SubstitutionEvent,
 } from "./types";
+import { normalizeAtBatResultFromMovements } from "./rules";
 
 export type NotationAtBatResult = AtBatResult;
 
@@ -85,9 +86,12 @@ export function formatAtBatResult(
 }
 
 export function formatAtBatNotation(
-  event: Pick<AtBatEvent, "result" | "battedBall">
+  event: Pick<AtBatEvent, "result" | "battedBall" | "movements">
 ): string {
-  return formatAtBatResult(event.result, event.battedBall);
+  return formatAtBatResult(
+    normalizeAtBatResultFromMovements(event.result, event.movements),
+    event.battedBall
+  );
 }
 
 const BASE_LABEL: Record<Base, string> = {

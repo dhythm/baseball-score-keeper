@@ -44,6 +44,30 @@ describe("at-bat notation", () => {
     ).toBe("遊併");
   });
 
+  it("shows a legacy ground-out event with two outs as a double play", () => {
+    const event = atBat("groundOut", {
+      position: "second",
+      type: "ground",
+    });
+    event.movements = [
+      {
+        playerId: "runner",
+        from: "first",
+        to: "out",
+        isRBI: false,
+        outType: "force",
+      },
+      {
+        playerId: "batter",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ];
+
+    expect(formatAtBatNotation(event)).toBe("二併");
+  });
+
   it("distinguishes swinging and looking strikeouts", () => {
     expect(formatAtBatNotation(atBat("strikeoutSwinging"))).toBe("空三振");
     expect(formatAtBatNotation(atBat("strikeoutLooking"))).toBe("見三振");

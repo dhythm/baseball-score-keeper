@@ -80,6 +80,35 @@ describe("createAtBatEvent", () => {
     ).toMatchObject({ result: "strikeout" });
   });
 
+  it("normalizes a ground ball with two recorded outs as a double play", () => {
+    expect(
+      createAtBatEvent({
+        id: "double-play-from-movements",
+        batterId: "batter",
+        result: "groundOut",
+        detail: "二ゴロ",
+        movements: [
+          {
+            playerId: "runner",
+            from: "first",
+            to: "out",
+            isRBI: false,
+            outType: "force",
+          },
+          {
+            playerId: "batter",
+            from: "batter",
+            to: "out",
+            isRBI: false,
+          },
+        ],
+      })
+    ).toMatchObject({
+      result: "doublePlay",
+      battedBall: { position: "second", type: "ground" },
+    });
+  });
+
   it("uses v2 sacrifice-fly and movement-based double-play defaults", () => {
     expect(
       getDefaultMovementsForSelection(

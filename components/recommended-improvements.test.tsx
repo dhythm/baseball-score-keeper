@@ -2,7 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { EventIntegrityAlert } from "./event-integrity-alert";
+import { ScorebookAtBatLine } from "./scorebook-at-bat-line";
 import { SituationMiniHeader } from "./situation-mini-header";
+import { createAtBatEvent } from "../lib/app-state/event-factory";
 import { gameReducer } from "../lib/app-state/reducer";
 import type { GameEvent, Team } from "../lib/domain/types";
 
@@ -83,5 +85,52 @@ describe("recommended improvement UI", () => {
 
     expect(html).toContain("無効になった記録が1件あります");
     expect(html).toContain("指定した塁にその走者はいません");
+  });
+
+  it("renders a two-out ground ball as a double play in the batting order", () => {
+    const game = loadGame([
+      {
+        id: "single",
+        kind: "atBat",
+        batterId: "away-1",
+        result: "single",
+        movements: [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+      },
+      createAtBatEvent({
+        id: "double-play",
+        batterId: "away-2",
+        result: "groundOut",
+        detail: "二ゴロ",
+        movements: [
+          {
+            playerId: "away-1",
+            from: "first",
+            to: "out",
+            isRBI: false,
+            outType: "force",
+          },
+          {
+            playerId: "away-2",
+            from: "batter",
+            to: "out",
+            isRBI: false,
+          },
+        ],
+      }),
+    ]);
+
+    const html = renderToStaticMarkup(
+      <ScorebookAtBatLine entry={game.timeline[1]} />
+    );
+
+    expect(html).toContain("二併");
+    expect(html).not.toContain("二ゴロ");
   });
 });

@@ -13,7 +13,10 @@ import type {
   SubstitutionRole,
   TeamSide,
 } from "../domain/types";
-import { getDefaultMovements } from "../domain/rules";
+import {
+  getDefaultMovements,
+  normalizeAtBatResultFromMovements,
+} from "../domain/rules";
 
 const positionByLabel: Record<string, FieldingPosition> = {
   投: "pitcher",
@@ -115,7 +118,8 @@ export function createAtBatEvent({
   movements: RunnerMovement[];
 }): AtBatEvent {
   const note = detail?.trim() ?? "";
-  const result = mapAtBatSelectionResult(legacyResult, note);
+  const selectedResult = mapAtBatSelectionResult(legacyResult, note);
+  const result = normalizeAtBatResultFromMovements(selectedResult, movements);
   const battedBall = parseBattedBall(result, note);
   return {
     id,

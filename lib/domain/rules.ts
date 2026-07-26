@@ -7,6 +7,19 @@ import type {
   Violation,
 } from "./types";
 
+export function normalizeAtBatResultFromMovements(
+  result: AtBatResult,
+  movements: readonly RunnerMovement[]
+): AtBatResult {
+  if (
+    result === "groundOut" &&
+    movements.filter((movement) => movement.to === "out").length >= 2
+  ) {
+    return "doublePlay";
+  }
+  return result;
+}
+
 interface DefaultMovementContext {
   battedBall?: BattedBall;
   isInfieldHit?: boolean;

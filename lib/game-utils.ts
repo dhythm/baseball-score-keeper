@@ -1,6 +1,12 @@
-import type { RunnerMovement, Runners } from "./domain/types";
-import type { AtBatResult, FieldingPosition, Player, Team } from "./types";
-import { FIELDING_POSITIONS } from "./types";
+import type {
+  AtBatResult,
+  FieldingPosition,
+  Player,
+  RunnerMovement,
+  Runners,
+  Team,
+} from "./domain/types";
+import { FIELDING_POSITIONS } from "./domain/catalog";
 
 /** Results whose default movement is complete without runner confirmation. */
 export function isAutoAdvanceAtBatResult(result: AtBatResult): boolean {

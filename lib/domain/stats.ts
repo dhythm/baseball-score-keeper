@@ -63,6 +63,7 @@ function isHit(result: AtBatResult): boolean {
 
 function isStrikeout(result: AtBatResult): boolean {
   return (
+    result === "strikeout" ||
     result === "strikeoutSwinging" ||
     result === "strikeoutLooking" ||
     result === "uncaughtThirdStrike"

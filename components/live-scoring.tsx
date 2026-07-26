@@ -19,8 +19,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
-import type { AtBatResult } from "@/lib/types";
-import type { GameEvent, RunnerMovement } from "@/lib/domain/types";
+import type {
+  AtBatResult,
+  GameEvent,
+  RunnerMovement,
+} from "@/lib/domain/types";
 import {
   canApplyDefaultMovementsWithoutConfirmation,
   generateId,
@@ -335,6 +338,11 @@ export function LiveScoring() {
               setPendingResult(null);
               setPendingDetail(undefined);
             }
+          }}
+          onReselectResult={() => {
+            setPendingResult(null);
+            setPendingDetail(undefined);
+            setAtBatDialogOpen(true);
           }}
           onConfirm={handleRunnerAdvanceConfirm}
         />

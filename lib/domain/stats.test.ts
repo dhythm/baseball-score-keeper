@@ -253,6 +253,27 @@ describe("timeline-derived statistics", () => {
     });
   });
 
+  it("counts generic strikeouts and double plays as at-bats", () => {
+    const timeline = [
+      timelineEntry({
+        id: "generic-strikeout",
+        batterId: "p1",
+        result: "strikeout",
+      }),
+      timelineEntry({
+        id: "double-play",
+        batterId: "p1",
+        result: "doublePlay",
+      }),
+    ];
+
+    expect(getPlayerBattingStats(timeline, "p1")).toMatchObject({
+      plateAppearances: 2,
+      atBats: 2,
+      strikeouts: 1,
+    });
+  });
+
   it("credits a base-running RBI to its explicitly selected batter", () => {
     const scoringMovement: RunnerMovement = {
       playerId: "runner",

@@ -207,7 +207,7 @@ function OrderList({
                                 key={event.id}
                                 type="button"
                                 className={cn(
-                                  "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
+                                  "min-h-11 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
                                   event.kind === "atBat"
                                     ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                                     : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"

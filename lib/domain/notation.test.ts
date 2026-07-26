@@ -31,8 +31,16 @@ describe("at-bat notation", () => {
     expect(formatFieldingPosition("dh")).toBe("指");
   });
 
-  it("renders a legacy unspecialized strikeout as 三振", () => {
+  it("renders an unspecialized strikeout as 三振", () => {
     expect(formatAtBatResult("strikeout")).toBe("三振");
+  });
+
+  it("keeps dedicated double-play notation", () => {
+    expect(
+      formatAtBatNotation(
+        atBat("doublePlay", { position: "short", type: "ground" })
+      )
+    ).toBe("遊併");
   });
 
   it("distinguishes swinging and looking strikeouts", () => {

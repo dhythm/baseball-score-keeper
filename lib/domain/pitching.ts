@@ -20,6 +20,7 @@ export interface PitcherStats extends PitchingStats {
 
 const hitResults = new Set(["single", "double", "triple", "homerun"]);
 const strikeoutResults = new Set([
+  "strikeout",
   "strikeoutSwinging",
   "strikeoutLooking",
   "uncaughtThirdStrike",

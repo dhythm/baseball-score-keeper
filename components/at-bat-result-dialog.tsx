@@ -21,8 +21,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
-import type { AtBatResult } from "@/lib/types";
-import type { AtBatEvent, RunnerMovement } from "@/lib/domain/types";
+import type {
+  AtBatEvent,
+  AtBatResult,
+  RunnerMovement,
+} from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getTimelineEntry } from "@/lib/app-state/selectors";
 import {
@@ -71,6 +74,7 @@ export function AtBatResultDialog({
     result: AtBatResult;
     detail?: string;
     initialMovements?: RunnerMovement[];
+    movementOnly?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -100,7 +104,6 @@ export function AtBatResultDialog({
         ? { initialMovements: atBat.movements }
         : {}),
     });
-    onOpenChange(false);
   };
 
   const commitUpdate = (replacement: AtBatEvent) => {
@@ -123,17 +126,20 @@ export function AtBatResultDialog({
     }
     setPendingEdit(null);
     setCascadeUpdate(null);
+    onOpenChange(false);
   };
 
   const handleEditMovements = (movements: RunnerMovement[]) => {
     if (!eventId || !atBat || !pendingEdit) return;
-    const replacement = createAtBatEvent({
-      id: eventId,
-      batterId: atBat.batterId,
-      result: pendingEdit.result,
-      detail: pendingEdit.detail,
-      movements,
-    });
+    const replacement = pendingEdit.movementOnly
+      ? { ...atBat, movements }
+      : createAtBatEvent({
+          id: eventId,
+          batterId: atBat.batterId,
+          result: pendingEdit.result,
+          detail: pendingEdit.detail,
+          movements,
+        });
     const preview = evaluateEventUpdate(game, eventId, replacement);
     if (preview && preview.invalidatedEventIds.length > 0) {
       setCascadeUpdate({
@@ -200,6 +206,24 @@ export function AtBatResultDialog({
               </div>
             )}
 
+            {mode === "edit" && atBat && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-11 w-full"
+                onClick={() =>
+                  setPendingEdit({
+                    result: atBat.result,
+                    detail: atBat.note,
+                    initialMovements: atBat.movements,
+                    movementOnly: true,
+                  })
+                }
+              >
+                進塁・打点だけ修正
+              </Button>
+            )}
+
             <AtBatResultFlow
               resetToken={resetToken}
               outs={outsForFlow}
@@ -231,6 +255,7 @@ export function AtBatResultDialog({
             batterId: atBat.batterId,
           }}
           initialMovementsOverride={pendingEdit.initialMovements}
+          onReselectResult={() => setPendingEdit(null)}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) setPendingEdit(null);
           }}

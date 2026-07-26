@@ -1,4 +1,4 @@
-import type { FieldingPosition, Player, Team } from "./types";
+import type { FieldingPosition, Player, Team } from "./domain/types";
 
 const STANDARD_LINEUP_POSITIONS: FieldingPosition[] = [
   "pitcher",

@@ -12,8 +12,7 @@ import type {
   SubstitutionEvent,
 } from "./types";
 
-type LegacyAtBatResult = "strikeout";
-export type NotationAtBatResult = AtBatResult | LegacyAtBatResult;
+export type NotationAtBatResult = AtBatResult;
 
 const POSITION_SHORT: Record<FieldingPosition, string> = {
   pitcher: "投",
@@ -61,6 +60,8 @@ export function formatAtBatResult(
       return "空三振";
     case "strikeoutLooking":
       return "見三振";
+    case "doublePlay":
+      return position ? `${position}併` : "併殺";
     case "otherOut":
       return "アウト";
     case "walk":

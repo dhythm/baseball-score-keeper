@@ -96,7 +96,7 @@ describe("getDefaultMovements", () => {
     ]);
   });
 
-  it("moves only the third-base runner by default on a sacrifice fly", () => {
+  it("scores the third-base runner and advances the second-base runner on a sacrifice fly", () => {
     expect(
       getDefaultMovements(
         "sacrificeFly",
@@ -106,6 +106,7 @@ describe("getDefaultMovements", () => {
       )
     ).toEqual([
       movement("r3", "third", "home", true),
+      movement("r2", "second", "third"),
       movement("batter", "batter", "out"),
     ]);
   });

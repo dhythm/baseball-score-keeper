@@ -3,13 +3,13 @@ import type {
   GameConfig,
   GameEvent,
   ReplayResult,
-  RunnerMovement,
   Snapshot,
   SubstitutionEvent,
   TeamSide,
   TimelineEntry,
   Violation,
 } from "./types";
+import { evaluateMovementOutcome } from "./runner-advance";
 
 const EMPTY_RUNNERS = {
   first: null,
@@ -610,31 +610,16 @@ export function replay(
       if (movement.from !== "batter") nextRunners[movement.from] = null;
     }
 
-    let outsRecorded = 0;
-    const scoringMovements: RunnerMovement[] = [];
-    const outsNeededToEndHalf = 3 - snapshot.outs;
-    const halfEndingOut = event.movements.filter(
-      (movement) => movement.to === "out"
-    )[outsNeededToEndHalf - 1];
-    const batterMakesHalfEndingOut =
-      event.kind === "atBat" &&
-      halfEndingOut?.from === "batter" &&
-      halfEndingOut.playerId === event.batterId;
-    const forcePlayMakesHalfEndingOut = halfEndingOut?.outType === "force";
+    const { outsRecorded, scoringMovements } = evaluateMovementOutcome({
+      currentOuts: snapshot.outs,
+      movements: event.movements,
+      ...(event.kind === "atBat" ? { batterId: event.batterId } : {}),
+    });
 
     for (const movement of event.movements) {
-      if (movement.to === "out") {
-        if (snapshot.outs + outsRecorded < 3) outsRecorded += 1;
-      } else if (movement.to === "home") {
-        if (snapshot.outs + outsRecorded < 3) {
-          scoringMovements.push(movement);
-        }
-      } else {
+      if (movement.to !== "out" && movement.to !== "home") {
         nextRunners[movement.to] = movement.playerId;
       }
-    }
-    if (batterMakesHalfEndingOut || forcePlayMakesHalfEndingOut) {
-      scoringMovements.length = 0;
     }
 
     snapshot.runners = nextRunners;

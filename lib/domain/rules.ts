@@ -189,6 +189,9 @@ export function getDefaultMovements(
       if (runners.third) {
         movements.push(move(runners.third, "third", "home", true));
       }
+      if (runners.second) {
+        movements.push(move(runners.second, "second", "third"));
+      }
       movements.push(move(batterId, "batter", "out"));
       return movements;
     }
@@ -207,8 +210,10 @@ export function getDefaultMovements(
 
     case "groundOut":
     case "flyOut":
+    case "strikeout":
     case "strikeoutSwinging":
     case "strikeoutLooking":
+    case "doublePlay":
     case "otherOut":
       return [move(batterId, "batter", "out")];
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -209,14 +210,16 @@ function PitchingSummary({ game }: { game: AppGame }) {
 }
 
 export function GameResult() {
-  const { game, dispatch } = useGame();
+  const { game, dispatch, resetGame } = useGame();
+  const router = useRouter();
   const [showNewGameDialog, setShowNewGameDialog] = useState(false);
 
   if (!game) return null;
 
   const handleNewGame = () => {
-    dispatch({ type: "RESET_GAME" });
+    resetGame();
     setShowNewGameDialog(false);
+    router.replace("/");
   };
 
   const handleContinueGame = () => {
@@ -343,7 +346,7 @@ export function GameResult() {
           <AlertDialogHeader>
             <AlertDialogTitle>新しい試合を開始しますか？</AlertDialogTitle>
             <AlertDialogDescription>
-              現在の試合データは削除されます。この操作は元に戻せません。
+              試合設定画面へ戻ります。現在の試合は履歴からもう一度開けます。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

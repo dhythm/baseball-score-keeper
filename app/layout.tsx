@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NetworkStatus } from "@/components/network-status";
+import { AppProviders } from "@/components/app-providers";
 
 export const metadata: Metadata = {
   title: "スコアブック - 野球スコアラー",
@@ -43,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="font-sans antialiased">
-        {children}
+        <AppProviders>{children}</AppProviders>
         <NetworkStatus />
         <Toaster position="top-center" richColors closeButton />
         <ServiceWorkerRegistration />

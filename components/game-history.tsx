@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, History, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,13 +18,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
 import { replay } from "@/lib/domain/replay";
+import { gamePath } from "@/lib/app-state/routes";
 import {
   createBrowserGameRepository,
   type PersistedGameV2,
 } from "@/lib/storage/local-storage";
 
 export function GameHistory() {
-  const { dispatch } = useGame();
+  const { game, resetGame } = useGame();
+  const router = useRouter();
   const [games, setGames] = useState<PersistedGameV2[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [deleteGameId, setDeleteGameId] = useState<string | null>(null);
@@ -40,7 +43,12 @@ export function GameHistory() {
 
   const handleDelete = () => {
     if (!deleteGameId) return;
+    const isCurrentGame = game?.id === deleteGameId;
     createBrowserGameRepository().remove(deleteGameId);
+    if (isCurrentGame) {
+      resetGame();
+      router.replace("/");
+    }
     setDeleteGameId(null);
     refresh();
   };
@@ -94,9 +102,7 @@ export function GameHistory() {
                   <button
                     type="button"
                     className="min-h-11 min-w-0 flex-1 touch-manipulation text-left"
-                    onClick={() =>
-                      dispatch({ type: "LOAD_GAME", game: storedGame })
-                    }
+                    onClick={() => router.push(gamePath(storedGame.id))}
                   >
                     <span className="block truncate text-sm font-semibold">
                       {storedGame.config.teams.away.name} {snapshot.score.away}

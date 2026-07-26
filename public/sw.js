@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "baseball-scorebook-";
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -57,7 +57,7 @@ self.addEventListener("fetch", (event) => {
             (await event.preloadResponse) || (await fetch(request));
           if (response.ok) {
             const cache = await caches.open(CACHE_NAME);
-            await cache.put("/", response.clone());
+            await cache.put(request, response.clone());
           }
           return response;
         } catch {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Beaker, Play } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -13,12 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useGame } from "@/lib/game-context";
+import { gamePath } from "@/lib/app-state/routes";
 import { DEVELOPMENT_GAME_SCENARIOS } from "@/lib/dev-fixtures/game-scenarios";
 import { shouldShowDevelopmentTools } from "@/lib/development-mode";
+import { createBrowserGameRepository } from "@/lib/storage/local-storage";
 
 export function DevelopmentScenarioPanel() {
-  const { dispatch } = useGame();
+  const router = useRouter();
   const [scenarioId, setScenarioId] = useState(
     DEVELOPMENT_GAME_SCENARIOS[0]?.id ?? ""
   );
@@ -31,7 +33,9 @@ export function DevelopmentScenarioPanel() {
 
   const loadScenario = () => {
     if (!scenario) return;
-    dispatch({ type: "LOAD_GAME", game: scenario.createGame() });
+    const game = scenario.createGame();
+    createBrowserGameRepository().save(game);
+    router.push(gamePath(game.id));
     toast.success(`検証シナリオ「${scenario.title}」を読み込みました`);
   };
   return (

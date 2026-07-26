@@ -26,7 +26,9 @@ import type { FieldingPosition, Player, Team } from "@/lib/types";
 import { FIELDING_POSITION_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { shouldShowDevelopmentTools } from "@/lib/development-mode";
+import { gamePath } from "@/lib/app-state/routes";
 import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -511,6 +513,7 @@ function TeamSetupForm({
 
 export function GameSetup() {
   const { dispatch } = useGame();
+  const router = useRouter();
   const [awayTeam, setAwayTeam] = useState<Team>(emptyTeam);
   const [homeTeam, setHomeTeam] = useState<Team>(emptyTeam);
   const [inningOption, setInningOption] = useState("7");
@@ -530,15 +533,17 @@ export function GameSetup() {
     inningsValid;
 
   const startGame = () => {
+    const id = generateId();
     dispatch({
       type: "START_GAME",
-      id: generateId(),
+      id,
       date: new Date().toISOString(),
       config: {
         regulationInnings: totalInnings,
         teams: { away: awayTeam, home: homeTeam },
       },
     });
+    router.push(gamePath(id));
   };
 
   const applySamplePreset = () => {

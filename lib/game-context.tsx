@@ -22,7 +22,10 @@ import type { GameEvent, Violation } from "./domain/types";
 
 interface GameContextValue {
   game: AppGame | null;
+  storageReady: boolean;
   dispatch: Dispatch<GameAction>;
+  loadGame: (gameId: string) => boolean;
+  resetGame: () => void;
   addEvent: (event: GameEvent) => {
     accepted: boolean;
     violations: Violation[];
@@ -40,25 +43,28 @@ const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [game, dispatch] = useReducer(gameReducer, null);
-  const [hydrated, setHydrated] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
-    const stored = createBrowserGameRepository().loadActive();
-    if (stored) {
-      dispatch({ type: "LOAD_GAME", game: stored });
-    }
-    setHydrated(true);
+    setStorageReady(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    const repository = createBrowserGameRepository();
-    if (game) {
-      repository.save(toPersistedGame(game));
-    } else {
-      repository.clearActive();
-    }
-  }, [game, hydrated]);
+    if (!storageReady || !game) return;
+    createBrowserGameRepository().save(toPersistedGame(game));
+  }, [game, storageReady]);
+
+  const loadGame = useCallback((gameId: string) => {
+    const storedGame = createBrowserGameRepository().find(gameId);
+    if (!storedGame) return false;
+    dispatch({ type: "LOAD_GAME", game: storedGame });
+    return true;
+  }, []);
+
+  const resetGame = useCallback(() => {
+    createBrowserGameRepository().clearActive();
+    dispatch({ type: "RESET_GAME" });
+  }, []);
 
   const addEvent = useCallback(
     (event: GameEvent) => {
@@ -92,7 +98,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <GameContext.Provider value={{ game, dispatch, addEvent, updateEvent }}>
+    <GameContext.Provider
+      value={{
+        game,
+        storageReady,
+        dispatch,
+        loadGame,
+        resetGame,
+        addEvent,
+        updateEvent,
+      }}
+    >
       {children}
     </GameContext.Provider>
   );

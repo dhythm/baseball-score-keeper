@@ -7,6 +7,7 @@ import type {
   GameEvent,
   Player,
   RunnerMovement,
+  SubstitutionEvent,
 } from "./types";
 
 function players(side: string, count: number): Player[] {
@@ -28,6 +29,23 @@ function config(
       away: { name: "Away", players: players("away", awayPlayerCount) },
       home: { name: "Home", players: players("home", homePlayerCount) },
     },
+  };
+}
+
+function substitution(
+  id: string,
+  team: SubstitutionEvent["team"],
+  inPlayerId: string,
+  outPlayerId: string,
+  role: SubstitutionEvent["role"]
+): SubstitutionEvent {
+  return {
+    id,
+    kind: "substitution",
+    team,
+    inPlayerId,
+    outPlayerId,
+    role,
   };
 }
 
@@ -74,6 +92,7 @@ describe("replay", () => {
       half: "top",
       outs: 0,
       runners: { first: null, second: null, third: null },
+      activeLineup: { away: ["away-1"], home: ["home-1"] },
       currentBatterIndex: { away: 0, home: 0 },
       score: { away: 0, home: 0 },
       gameStatus: "live",
@@ -218,6 +237,48 @@ describe("replay", () => {
 
     expect(result.snapshot.score.away).toBe(0);
     expect(result.timeline.at(-1)?.scoringMovements).toEqual([]);
+  });
+
+  it("records an arbitrary multiple-out play from the entered movements", () => {
+    const doubleOutMovements: RunnerMovement[] = [
+      {
+        playerId: "away-1",
+        from: "first",
+        to: "out",
+        isRBI: false,
+      },
+      {
+        playerId: "away-2",
+        from: "batter",
+        to: "out",
+        isRBI: false,
+      },
+    ];
+    const events: GameEvent[] = [
+      atBat(
+        "single",
+        "away-1",
+        [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+        "single"
+      ),
+      atBat("double-out", "away-2", doubleOutMovements, "otherOut"),
+    ];
+
+    const result = replay(events, config(7, 2, 1));
+
+    expect(result.timeline[1].outsRecorded).toBe(2);
+    expect(result.timeline[1].event).toMatchObject({
+      kind: "atBat",
+      movements: doubleOutMovements,
+    });
+    expect(result.snapshot.outs).toBe(2);
   });
 
   it("re-derives every later inning placement when an earlier event is removed", () => {
@@ -398,5 +459,164 @@ describe("replay", () => {
       gameStatus: "finished",
       gameEndReason: "completedHalf",
     });
+  });
+
+  it("replaces the active batting-order slot for a pinch hitter", () => {
+    const gameConfig = config(7, 2, 1);
+    gameConfig.teams.away.benchPlayers = [
+      { id: "away-bench", name: "Pinch hitter", order: 0 },
+    ];
+    const events: GameEvent[] = [
+      substitution(
+        "pinch-hitter",
+        "away",
+        "away-bench",
+        "away-1",
+        "pinchHitter"
+      ),
+      out("pinch-hit-result", "away-bench"),
+    ];
+
+    const result = replay(events, gameConfig);
+
+    expect(result.snapshot.activeLineup.away).toEqual([
+      "away-bench",
+      "away-2",
+    ]);
+    expect(result.snapshot.currentBatterIndex.away).toBe(1);
+    expect(result.timeline.every((entry) => entry.applied)).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
+
+  it("replaces both the active batting-order slot and runner for a pinch runner", () => {
+    const gameConfig = config(7, 2, 1);
+    gameConfig.teams.away.benchPlayers = [
+      { id: "away-bench", name: "Pinch runner", order: 0 },
+    ];
+    const events: GameEvent[] = [
+      atBat(
+        "single",
+        "away-1",
+        [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+        "single"
+      ),
+      substitution(
+        "pinch-runner",
+        "away",
+        "away-bench",
+        "away-1",
+        "pinchRunner"
+      ),
+    ];
+
+    const result = replay(events, gameConfig);
+
+    expect(result.snapshot.activeLineup.away).toEqual([
+      "away-bench",
+      "away-2",
+    ]);
+    expect(result.snapshot.runners.first).toBe("away-bench");
+    expect(result.timeline[1]).toMatchObject({
+      team: "away",
+      outsRecorded: 0,
+      runsScored: 0,
+      applied: true,
+    });
+  });
+
+  it("rejects a pinch runner when the outgoing player is not on base", () => {
+    const gameConfig = config();
+    gameConfig.teams.away.benchPlayers = [
+      { id: "away-bench", name: "Pinch runner", order: 0 },
+    ];
+
+    const result = replay(
+      [
+        substitution(
+          "invalid-pinch-runner",
+          "away",
+          "away-bench",
+          "away-1",
+          "pinchRunner"
+        ),
+      ],
+      gameConfig
+    );
+
+    expect(result.timeline[0].applied).toBe(false);
+    expect(result.snapshot.activeLineup.away).toEqual(["away-1"]);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({
+        code: "SUBSTITUTION_RUNNER_NOT_FOUND",
+        eventId: "invalid-pinch-runner",
+      })
+    );
+  });
+
+  it("keeps defensive substitutions in the timeline and updates their batting slot", () => {
+    const gameConfig = config();
+    gameConfig.teams.home.benchPlayers = [
+      { id: "home-reliever", name: "Reliever", order: 0 },
+    ];
+
+    const result = replay(
+      [
+        substitution(
+          "pitching-change",
+          "home",
+          "home-reliever",
+          "home-1",
+          "pitcher"
+        ),
+      ],
+      gameConfig
+    );
+
+    expect(result.timeline[0]).toMatchObject({
+      inning: 1,
+      half: "top",
+      team: "home",
+      applied: true,
+    });
+    expect(result.snapshot.activeLineup.home).toEqual(["home-reliever"]);
+  });
+
+  it("ends immediately when an end-game control event is replayed", () => {
+    const events: GameEvent[] = [
+      {
+        id: "called-game",
+        kind: "gameControl",
+        action: "endGame",
+        reason: "降雨コールド",
+      },
+      out("ignored-after-end", "away-1"),
+    ];
+
+    const result = replay(events, config());
+
+    expect(result.snapshot).toMatchObject({
+      gameStatus: "finished",
+      gameEndReason: "manual",
+      gameEndReasonDetail: "降雨コールド",
+    });
+    expect(result.timeline[0]).toMatchObject({
+      applied: true,
+      runsScored: 0,
+      outsRecorded: 0,
+    });
+    expect(result.timeline[1].applied).toBe(false);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({
+        code: "GAME_ALREADY_FINISHED",
+        eventId: "ignored-after-end",
+      })
+    );
   });
 });

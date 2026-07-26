@@ -41,6 +41,7 @@ const OUT_KINDS: {
   { result: "flyOut", label: "フライ", needsField: true },
   { result: "strikeoutSwinging", label: "空振り三振", needsField: false },
   { result: "strikeoutLooking", label: "見逃し三振", needsField: false },
+  { result: "uncaughtThirdStrike", label: "振り逃げ", needsField: false },
   { result: "doublePlay", label: "併殺打", needsField: true },
   { result: "otherOut", label: "その他", needsField: false },
 ];
@@ -180,7 +181,7 @@ export function AtBatResultFlow({ resetToken, outs, onSubmit }: AtBatResultFlowP
   };
 
   const handleSacrifice = (detail: string) => {
-    onSubmit("sacrifice", detail);
+    onSubmit(detail.includes("犠飛") ? "sacrificeFly" : "sacrifice", detail);
   };
 
   const handleFcPos = (pos: FieldingPosition) => {

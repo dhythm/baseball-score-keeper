@@ -1,6 +1,8 @@
 import type {
   AtBatResult,
   BaseRunningEvent,
+  Half,
+  SubstitutionRole,
   TeamSide,
   TimelineEntry,
 } from "./types";
@@ -28,6 +30,16 @@ export interface PlayerBattingStats {
   sacrifice: number;
   sacrificeFlies: number;
   plateAppearances: number;
+}
+
+export interface PlayerAppearance {
+  eventId: string;
+  playerId: string;
+  replacedPlayerId: string;
+  team: TeamSide;
+  role: SubstitutionRole;
+  inning: number;
+  half: Half;
 }
 
 const HIT_RESULTS: ReadonlySet<AtBatResult> = new Set([
@@ -61,7 +73,11 @@ export function getInningScores(
   timeline: readonly TimelineEntry[],
   regulationInnings: number
 ): InningScores {
-  const applied = timeline.filter((entry) => entry.applied);
+  const applied = timeline.filter(
+    (entry) =>
+      entry.applied &&
+      (entry.event.kind === "atBat" || entry.event.kind === "baseRunning")
+  );
   const latestInning = applied.reduce(
     (maximum, entry) => Math.max(maximum, entry.inning),
     0
@@ -145,6 +161,7 @@ export function getPlayerBattingStats(
       }
       continue;
     }
+    if (entry.event.kind !== "atBat") continue;
 
     if (entry.event.batterId !== playerId) continue;
 
@@ -163,6 +180,33 @@ export function getPlayerBattingStats(
   }
 
   return stats;
+}
+
+export function getPlayerAppearances(
+  timeline: readonly TimelineEntry[],
+  playerId: string
+): PlayerAppearance[] {
+  return timeline.flatMap((entry) => {
+    if (
+      !entry.applied ||
+      entry.event.kind !== "substitution" ||
+      entry.event.inPlayerId !== playerId
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        eventId: entry.event.id,
+        playerId: entry.event.inPlayerId,
+        replacedPlayerId: entry.event.outPlayerId,
+        team: entry.event.team,
+        role: entry.event.role,
+        inning: entry.inning,
+        half: entry.half,
+      },
+    ];
+  });
 }
 
 function rbiCreditBatterId(event: BaseRunningEvent): string | undefined {

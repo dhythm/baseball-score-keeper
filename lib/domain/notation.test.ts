@@ -7,6 +7,8 @@ import {
   formatBaseRunningNotation,
   formatEventNotation,
   formatFieldingPosition,
+  formatGameControlNotation,
+  formatSubstitutionNotation,
 } from "./notation";
 
 function atBat(
@@ -121,5 +123,42 @@ describe("base-running notation", () => {
     };
 
     expect(formatBaseRunningNotation(event)).toBe("盗3・盗2");
+  });
+});
+
+describe("game-management notation", () => {
+  it("formats each substitution role without parsing free text", () => {
+    const baseEvent = {
+      id: "change",
+      kind: "substitution",
+      team: "away",
+      inPlayerId: "incoming",
+      outPlayerId: "outgoing",
+    } as const;
+
+    expect(
+      formatSubstitutionNotation({ ...baseEvent, role: "pinchHitter" })
+    ).toBe("代打");
+    expect(
+      formatSubstitutionNotation({ ...baseEvent, role: "pinchRunner" })
+    ).toBe("代走");
+    expect(
+      formatSubstitutionNotation({ ...baseEvent, role: "pitcher" })
+    ).toBe("投手交代");
+    expect(
+      formatSubstitutionNotation({ ...baseEvent, role: "fielder" })
+    ).toBe("守備交代");
+  });
+
+  it("includes an optional manual game-end reason", () => {
+    const event = {
+      id: "end",
+      kind: "gameControl",
+      action: "endGame",
+      reason: "降雨コールド",
+    } as const;
+
+    expect(formatGameControlNotation(event)).toBe("試合終了（降雨コールド）");
+    expect(formatEventNotation(event)).toBe("試合終了（降雨コールド）");
   });
 });

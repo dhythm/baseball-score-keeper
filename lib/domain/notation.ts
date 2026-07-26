@@ -6,8 +6,10 @@ import type {
   BattedBall,
   FieldingPosition,
   GameEvent,
+  GameControlEvent,
   RunnerDestination,
   RunnerMovement,
+  SubstitutionEvent,
 } from "./types";
 
 export type LegacyAtBatResult = "strikeout";
@@ -141,7 +143,32 @@ export function formatBaseRunningNotation(event: BaseRunningEvent): string {
 }
 
 export function formatEventNotation(event: GameEvent): string {
-  return event.kind === "atBat"
-    ? formatAtBatNotation(event)
-    : formatBaseRunningNotation(event);
+  switch (event.kind) {
+    case "atBat":
+      return formatAtBatNotation(event);
+    case "baseRunning":
+      return formatBaseRunningNotation(event);
+    case "substitution":
+      return formatSubstitutionNotation(event);
+    case "gameControl":
+      return formatGameControlNotation(event);
+  }
+}
+
+export function formatSubstitutionNotation(
+  event: Pick<SubstitutionEvent, "role">
+): string {
+  const labels: Record<SubstitutionEvent["role"], string> = {
+    pinchHitter: "代打",
+    pinchRunner: "代走",
+    fielder: "守備交代",
+    pitcher: "投手交代",
+  };
+  return labels[event.role];
+}
+
+export function formatGameControlNotation(
+  event: Pick<GameControlEvent, "action" | "reason">
+): string {
+  return event.reason ? `試合終了（${event.reason}）` : "試合終了";
 }

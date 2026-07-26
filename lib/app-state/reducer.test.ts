@@ -154,6 +154,27 @@ describe("app-state gameReducer", () => {
     expect(resumed).toMatchObject({ status: "live", manualEnded: false });
   });
 
+  it("removes a recorded manual end event when play is resumed", () => {
+    const endEvent: GameEvent = {
+      id: "end",
+      kind: "gameControl",
+      action: "endGame",
+      reason: "時間切れ",
+    };
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1"), endEvent], "finished"),
+    });
+    const resumed = gameReducer(loaded, { type: "RESUME_GAME" });
+
+    expect(resumed).toMatchObject({
+      status: "live",
+      manualEnded: false,
+      currentState: { gameStatus: "live" },
+    });
+    expect(resumed?.events.map((event) => event.id)).toEqual(["first"]);
+  });
+
   it("restores a persisted manual end and can reset to setup", () => {
     const loaded = gameReducer(null, {
       type: "LOAD_GAME",
@@ -252,6 +273,26 @@ describe("app-state selectors", () => {
       inning: 1,
       half: "top",
     });
+  });
+
+  it("selects a substitute from the replay-derived active lineup", () => {
+    const game = persistedGame([
+      {
+        id: "sub",
+        kind: "substitution",
+        team: "away",
+        inPlayerId: "away-bench",
+        outPlayerId: "away-1",
+        role: "pinchHitter",
+      },
+    ]);
+    game.config.teams.away.benchPlayers = [
+      { id: "away-bench", name: "away bench", order: 3 },
+    ];
+    const state = gameReducer(null, { type: "LOAD_GAME", game });
+
+    expect(getCurrentBatter(state!)).toMatchObject({ id: "away-bench" });
+    expect(getNextBatter(state!)).toMatchObject({ id: "away-2" });
   });
 
   it("projects only persisted input fields", () => {

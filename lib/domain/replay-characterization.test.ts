@@ -54,6 +54,10 @@ describe("v2 replay characterization", () => {
       half: "top",
       outs: 0,
       runners: { first: null, second: null, third: null },
+      activeLineup: {
+        away: legacy.teams.away.players.map((player) => player.id),
+        home: legacy.teams.home.players.map((player) => player.id),
+      },
       currentBatterIndex: { away: 3, home: 3 },
       score: { away: 0, home: 0 },
       gameStatus: "live",

@@ -5,6 +5,7 @@ import type {
   ReplayResult,
   RunnerMovement,
   Snapshot,
+  SubstitutionEvent,
   TeamSide,
   TimelineEntry,
   Violation,
@@ -22,12 +23,16 @@ const BASE_NUMBER: Record<Base, number> = {
   third: 3,
 };
 
-function initialSnapshot(): Snapshot {
+function initialSnapshot(config: GameConfig): Snapshot {
   return {
     inning: 1,
     half: "top",
     outs: 0,
     runners: { ...EMPTY_RUNNERS },
+    activeLineup: {
+      away: config.teams.away.players.map((player) => player.id),
+      home: config.teams.home.players.map((player) => player.id),
+    },
     currentBatterIndex: { away: 0, home: 0 },
     score: { away: 0, home: 0 },
     gameStatus: "live",
@@ -38,6 +43,10 @@ function copySnapshot(snapshot: Snapshot): Snapshot {
   return {
     ...snapshot,
     runners: { ...snapshot.runners },
+    activeLineup: {
+      away: [...snapshot.activeLineup.away],
+      home: [...snapshot.activeLineup.home],
+    },
     currentBatterIndex: { ...snapshot.currentBatterIndex },
     score: { ...snapshot.score },
   };
@@ -71,6 +80,7 @@ function validateConfig(config: GameConfig): Violation[] {
   const seenPlayerIds = new Set<string>();
   for (const side of ["away", "home"] as const) {
     const lineup = config.teams[side].players;
+    const roster = [...lineup, ...(config.teams[side].benchPlayers ?? [])];
     if (lineup.length === 0) {
       violations.push({
         code: "EMPTY_LINEUP",
@@ -78,7 +88,7 @@ function validateConfig(config: GameConfig): Violation[] {
         message: `${side} lineup must contain at least one player`,
       });
     }
-    for (const player of lineup) {
+    for (const player of roster) {
       if (seenPlayerIds.has(player.id)) {
         violations.push({
           code: "DUPLICATE_PLAYER_ID",
@@ -102,8 +112,8 @@ function validateEvent(
 ): Violation[] {
   const violations: Violation[] = [];
   const team = offense(snapshot);
-  const lineup = config.teams[team].players;
-  const offensivePlayerIds = new Set(lineup.map((player) => player.id));
+  const activeLineup = snapshot.activeLineup[team];
+  const offensivePlayerIds = new Set(activeLineup);
 
   if (event.kind === "atBat") {
     if (!allPlayerIds.has(event.batterId)) {
@@ -128,19 +138,19 @@ function validateEvent(
       );
     }
 
-    const expectedBatter = lineup[snapshot.currentBatterIndex[team]];
-    if (expectedBatter && event.batterId !== expectedBatter.id) {
+    const expectedBatterId = activeLineup[snapshot.currentBatterIndex[team]];
+    if (expectedBatterId && event.batterId !== expectedBatterId) {
       violations.push(
         violation(
           event,
           eventIndex,
           "WRONG_BATTER",
           "warning",
-          `expected batter ${expectedBatter.id}, received ${event.batterId}`
+          `expected batter ${expectedBatterId}, received ${event.batterId}`
         )
       );
     }
-  } else if (event.rbiCreditBatterId) {
+  } else if (event.kind === "baseRunning" && event.rbiCreditBatterId) {
     if (!allPlayerIds.has(event.rbiCreditBatterId)) {
       violations.push(
         violation(
@@ -163,6 +173,14 @@ function validateEvent(
       );
     }
   }
+
+  if (event.kind === "substitution") {
+    return [
+      ...violations,
+      ...validateSubstitution(event, eventIndex, snapshot, config),
+    ];
+  }
+  if (event.kind === "gameControl") return violations;
 
   const seenSources = new Set<string>();
   const seenPlayers = new Set<string>();
@@ -305,6 +323,76 @@ function validateEvent(
   return violations;
 }
 
+function validateSubstitution(
+  event: SubstitutionEvent,
+  eventIndex: number,
+  snapshot: Snapshot,
+  config: GameConfig
+): Violation[] {
+  const violations: Violation[] = [];
+  const rosterIds = new Set(
+    [
+      ...config.teams[event.team].players,
+      ...(config.teams[event.team].benchPlayers ?? []),
+    ].map((player) => player.id)
+  );
+  const activeLineup = snapshot.activeLineup[event.team];
+
+  if (!rosterIds.has(event.inPlayerId) || !rosterIds.has(event.outPlayerId)) {
+    violations.push(
+      violation(
+        event,
+        eventIndex,
+        "SUBSTITUTION_PLAYER_NOT_ON_TEAM",
+        "error",
+        "both substitution players must belong to the selected team"
+      )
+    );
+  }
+  if (!activeLineup.includes(event.outPlayerId)) {
+    violations.push(
+      violation(
+        event,
+        eventIndex,
+        "SUBSTITUTION_OUT_PLAYER_NOT_ACTIVE",
+        "error",
+        `outgoing player ${event.outPlayerId} is not active`
+      )
+    );
+  }
+  if (activeLineup.includes(event.inPlayerId)) {
+    violations.push(
+      violation(
+        event,
+        eventIndex,
+        "SUBSTITUTION_IN_PLAYER_ALREADY_ACTIVE",
+        "error",
+        `incoming player ${event.inPlayerId} is already active`
+      )
+    );
+  }
+  if (
+    event.role === "pinchRunner" &&
+    !Object.values(snapshot.runners).includes(event.outPlayerId)
+  ) {
+    violations.push(
+      violation(
+        event,
+        eventIndex,
+        "SUBSTITUTION_RUNNER_NOT_FOUND",
+        "error",
+        `outgoing pinch runner ${event.outPlayerId} is not on base`
+      )
+    );
+  }
+
+  return violations;
+}
+
+function eventTeam(event: GameEvent, snapshot: Snapshot): TeamSide {
+  return event.kind === "substitution" ? event.team : offense(snapshot);
+}
+
 function rejectedEntry(
   event: GameEvent,
   index: number,
@@ -315,7 +403,7 @@ function rejectedEntry(
     index,
     inning: before.inning,
     half: before.half,
-    team: offense(before),
+    team: eventTeam(event, before),
     outsBefore: before.outs,
     outsAfter: before.outs,
     outsRecorded: 0,
@@ -367,12 +455,17 @@ export function replay(
   events: readonly GameEvent[],
   config: GameConfig
 ): ReplayResult {
-  let snapshot = initialSnapshot();
+  let snapshot = initialSnapshot(config);
   const timeline: TimelineEntry[] = [];
   const violations = validateConfig(config);
   const seenEventIds = new Set<string>();
   const allPlayerIds = new Set(
-    [...config.teams.away.players, ...config.teams.home.players].map(
+    [
+      ...config.teams.away.players,
+      ...(config.teams.away.benchPlayers ?? []),
+      ...config.teams.home.players,
+      ...(config.teams.home.benchPlayers ?? []),
+    ].map(
       (player) => player.id
     )
   );
@@ -421,7 +514,62 @@ export function replay(
       continue;
     }
 
-    const team = offense(snapshot);
+    const team = eventTeam(event, snapshot);
+
+    if (event.kind === "gameControl") {
+      snapshot.gameStatus = "finished";
+      snapshot.gameEndReason = "manual";
+      snapshot.gameEndReasonDetail = event.reason;
+      const after = copySnapshot(snapshot);
+      timeline.push({
+        event,
+        index,
+        inning: before.inning,
+        half: before.half,
+        team,
+        outsBefore: before.outs,
+        outsAfter: before.outs,
+        outsRecorded: 0,
+        runsScored: 0,
+        scoringMovements: [],
+        applied: true,
+        before,
+        after,
+      });
+      continue;
+    }
+
+    if (event.kind === "substitution") {
+      const slot = snapshot.activeLineup[event.team].indexOf(
+        event.outPlayerId
+      );
+      snapshot.activeLineup[event.team][slot] = event.inPlayerId;
+      if (event.role === "pinchRunner") {
+        for (const base of ["first", "second", "third"] as const) {
+          if (snapshot.runners[base] === event.outPlayerId) {
+            snapshot.runners[base] = event.inPlayerId;
+          }
+        }
+      }
+      const after = copySnapshot(snapshot);
+      timeline.push({
+        event,
+        index,
+        inning: before.inning,
+        half: before.half,
+        team,
+        outsBefore: before.outs,
+        outsAfter: before.outs,
+        outsRecorded: 0,
+        runsScored: 0,
+        scoringMovements: [],
+        applied: true,
+        before,
+        after,
+      });
+      continue;
+    }
+
     const nextRunners = { ...snapshot.runners };
     for (const movement of event.movements) {
       if (movement.from !== "batter") nextRunners[movement.from] = null;
@@ -458,7 +606,7 @@ export function replay(
     snapshot.score[team] += scoringMovements.length;
 
     if (event.kind === "atBat") {
-      const lineupLength = config.teams[team].players.length;
+      const lineupLength = snapshot.activeLineup[team].length;
       snapshot.currentBatterIndex[team] =
         (snapshot.currentBatterIndex[team] + 1) % lineupLength;
     }

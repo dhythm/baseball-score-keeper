@@ -24,10 +24,12 @@ import {
 } from "@/lib/game-utils";
 import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
 import { migrateV1Game } from "@/lib/storage/local-storage";
+import { GameHistory } from "@/components/game-history";
 
 const emptyTeam = (): Team => ({
   name: "",
   players: [],
+  benchPlayers: [],
   startingPitcherId: null,
   startingPitcherName: "",
 });
@@ -77,6 +79,7 @@ function TeamSetupForm({
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newPlayerPosition, setNewPlayerPosition] =
     useState<FieldingPosition | null>(null);
+  const [newBenchPlayerName, setNewBenchPlayerName] = useState("");
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const lineupPitcherCount = team.players.filter(
@@ -105,6 +108,34 @@ function TeamSetupForm({
       .filter((p) => p.id !== id)
       .map((p, index) => ({ ...p, order: index + 1 }));
     onTeamChange(syncStartingPitcher({ ...team, players: newPlayers }));
+  };
+
+  const addBenchPlayer = () => {
+    const name = newBenchPlayerName.trim();
+    if (!name) return;
+    const benchPlayers = team.benchPlayers ?? [];
+    onTeamChange({
+      ...team,
+      benchPlayers: [
+        ...benchPlayers,
+        {
+          id: generateId(),
+          name,
+          order: team.players.length + benchPlayers.length + 1,
+          position: null,
+        },
+      ],
+    });
+    setNewBenchPlayerName("");
+  };
+
+  const removeBenchPlayer = (id: string) => {
+    onTeamChange({
+      ...team,
+      benchPlayers: (team.benchPlayers ?? []).filter(
+        (player) => player.id !== id
+      ),
+    });
   };
 
   const movePlayer = (index: number, direction: "up" | "down") => {
@@ -346,7 +377,7 @@ function TeamSetupForm({
                       onChange={(e) =>
                         updatePlayerName(player.id, e.target.value)
                       }
-                      className="h-8 min-w-0 flex-1 bg-background text-sm"
+                      className="h-11 min-w-0 flex-1 bg-background text-base sm:text-sm"
                       aria-label={`打順${player.order}の選手名`}
                     />
                   </div>
@@ -384,7 +415,7 @@ function TeamSetupForm({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-11 w-11"
                         onClick={() => movePlayer(index, "up")}
                         disabled={index === 0}
                       >
@@ -394,7 +425,7 @@ function TeamSetupForm({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-11 w-11"
                         onClick={() => movePlayer(index, "down")}
                         disabled={index === team.players.length - 1}
                       >
@@ -404,7 +435,7 @@ function TeamSetupForm({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        className="h-11 w-11 text-destructive hover:text-destructive"
                         onClick={() => removePlayer(player.id)}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -416,6 +447,66 @@ function TeamSetupForm({
             })}
           </ul>
         )}
+
+        <div className="space-y-3 border-t border-border pt-4">
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">
+              控え選手
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              試合中の代打・代走・守備交代で選択できます。
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={newBenchPlayerName}
+              onChange={(event) => setNewBenchPlayerName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addBenchPlayer();
+                }
+              }}
+              className="h-11 flex-1 bg-background text-base"
+              placeholder="控え選手名"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-11 w-11 shrink-0"
+              disabled={!newBenchPlayerName.trim()}
+              onClick={addBenchPlayer}
+              aria-label="控え選手を追加"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
+          {(team.benchPlayers ?? []).length > 0 && (
+            <ul className="space-y-2">
+              {(team.benchPlayers ?? []).map((player) => (
+                <li
+                  key={player.id}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-secondary/50 px-3"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {player.name}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removeBenchPlayer(player.id)}
+                    aria-label={`${player.name}を控えから削除`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -425,12 +516,21 @@ export function GameSetup() {
   const { dispatch } = useGame();
   const [awayTeam, setAwayTeam] = useState<Team>(emptyTeam);
   const [homeTeam, setHomeTeam] = useState<Team>(emptyTeam);
+  const [inningOption, setInningOption] = useState("7");
+  const [customInnings, setCustomInnings] = useState("6");
+  const totalInnings =
+    inningOption === "custom"
+      ? Number.parseInt(customInnings, 10)
+      : Number.parseInt(inningOption, 10);
+  const inningsValid =
+    Number.isInteger(totalInnings) && totalInnings >= 1 && totalInnings <= 20;
 
   const canStartGame =
     awayTeam.name.trim() !== "" &&
     homeTeam.name.trim() !== "" &&
     isTeamRosterValid(awayTeam) &&
-    isTeamRosterValid(homeTeam);
+    isTeamRosterValid(homeTeam) &&
+    inningsValid;
 
   const startGame = () => {
     dispatch({
@@ -438,7 +538,7 @@ export function GameSetup() {
       id: generateId(),
       date: new Date().toISOString(),
       config: {
-        regulationInnings: 9,
+        regulationInnings: totalInnings,
         teams: { away: awayTeam, home: homeTeam },
       },
     });
@@ -466,6 +566,7 @@ export function GameSetup() {
       </header>
 
       <main className="p-4 pb-24 space-y-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
+        <GameHistory />
         <div className="flex flex-col gap-2">
           <Button
             type="button"
@@ -490,6 +591,52 @@ export function GameSetup() {
             試合中は画面上部の「検証用」からも同じダミーに切り替えられます。
           </p>
         </div>
+
+        <Card className="gap-3 border-border py-4">
+          <CardHeader className="px-4 py-0">
+            <CardTitle className="text-base">試合イニング</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4">
+            <div className="grid grid-cols-4 gap-2">
+              {["5", "7", "9", "custom"].map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={inningOption === value ? "default" : "outline"}
+                  className="h-11 touch-manipulation px-2"
+                  onClick={() => setInningOption(value)}
+                >
+                  {value === "custom" ? "任意" : `${value}回`}
+                </Button>
+              ))}
+            </div>
+            {inningOption === "custom" && (
+              <div className="space-y-1.5">
+                <label htmlFor="custom-innings" className="text-sm font-medium">
+                  イニング数（1〜20）
+                </label>
+                <Input
+                  id="custom-innings"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={20}
+                  value={customInnings}
+                  onChange={(event) => setCustomInnings(event.target.value)}
+                  className="h-11 text-base"
+                />
+                {!inningsValid && (
+                  <p className="text-xs text-destructive">
+                    1〜20の整数を入力してください。
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              草野球標準の7回を初期値にしています。同点の場合は自動で延長します。
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6 lg:items-start">
           <TeamSetupForm

@@ -12,24 +12,37 @@ export function getPlayerById(
 ): Player | null {
   return (
     game.config.teams.away.players.find((player) => player.id === playerId) ??
+    game.config.teams.away.benchPlayers?.find((player) => player.id === playerId) ??
     game.config.teams.home.players.find((player) => player.id === playerId) ??
+    game.config.teams.home.benchPlayers?.find((player) => player.id === playerId) ??
     null
   );
 }
 
 export function getCurrentBatter(game: AppGame): Player | null {
   const teamSide = getCurrentTeamSide(game);
-  const lineup = game.config.teams[teamSide].players;
+  const roster = [
+    ...game.config.teams[teamSide].players,
+    ...(game.config.teams[teamSide].benchPlayers ?? []),
+  ];
+  const activePlayerIds = game.currentState.activeLineup[teamSide];
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
-  return lineup[batterIndex] ?? null;
+  const playerId = activePlayerIds[batterIndex];
+  return roster.find((player) => player.id === playerId) ?? null;
 }
 
 export function getNextBatter(game: AppGame): Player | null {
   const teamSide = getCurrentTeamSide(game);
-  const lineup = game.config.teams[teamSide].players;
-  if (lineup.length === 0) return null;
+  const roster = [
+    ...game.config.teams[teamSide].players,
+    ...(game.config.teams[teamSide].benchPlayers ?? []),
+  ];
+  const activePlayerIds = game.currentState.activeLineup[teamSide];
+  if (activePlayerIds.length === 0) return null;
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
-  return lineup[(batterIndex + 1) % lineup.length] ?? null;
+  const playerId =
+    activePlayerIds[(batterIndex + 1) % activePlayerIds.length];
+  return roster.find((player) => player.id === playerId) ?? null;
 }
 
 export function getTimelineEntry(

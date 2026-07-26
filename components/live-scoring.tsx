@@ -11,6 +11,7 @@ import {
   BaseRunningEventSheet,
   type BaseRunningEventResult,
 } from "@/components/base-running-event-sheet";
+import { SubstitutionSheet } from "@/components/substitution-sheet";
 import {
   Sheet,
   SheetContent,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
-import type { RunnerMovement, Base } from "@/lib/domain/types";
+import type { RunnerMovement } from "@/lib/domain/types";
 import {
   isAutoAdvanceAtBatResult,
   generateId,
@@ -39,7 +40,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Flag } from "lucide-react";
+import {
+  Flag,
+  RotateCcw,
+  Footprints,
+  PlusCircle,
+  UserRoundCog,
+} from "lucide-react";
+import { toast } from "sonner";
 import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
 import { migrateV1Game } from "@/lib/storage/local-storage";
 
@@ -51,6 +59,8 @@ export function LiveScoring() {
   const [showDummyDialog, setShowDummyDialog] = useState(false);
   const [atBatDialogOpen, setAtBatDialogOpen] = useState(false);
   const [baseRunningOpen, setBaseRunningOpen] = useState(false);
+  const [substitutionOpen, setSubstitutionOpen] = useState(false);
+  const [gameEndReason, setGameEndReason] = useState("規定回終了");
 
   if (!game) return null;
 
@@ -80,6 +90,7 @@ export function LiveScoring() {
           movements,
         }),
       });
+      toast.success("打席を記録しました");
     } else {
       setPendingResult(result);
       setPendingDetail(detail);
@@ -103,52 +114,43 @@ export function LiveScoring() {
         movements,
       }),
     });
+    toast.success("打席を記録しました");
 
     setPendingResult(null);
     setPendingDetail(undefined);
   };
 
   const handleBaseRunningEvent = (payload: BaseRunningEventResult) => {
-    const { runnerId, type, to, rbiCreditBatterId } = payload;
-    const { runners, outs } = game.currentState;
-
-    let from: Base;
-    if (runners.first === runnerId) from = "first";
-    else if (runners.second === runnerId) from = "second";
-    else if (runners.third === runnerId) from = "third";
-    else return;
-
-    const scoresRun = to === "home" && outs < 3;
-    const isRbi = scoresRun && !!rbiCreditBatterId;
-
-    const movements: RunnerMovement[] = [
-      {
-        playerId: runnerId,
-        from,
-        to,
-        isRBI: isRbi,
-      },
-    ];
-
     dispatch({
       type: "ADD_EVENT",
       event: {
         id: generateId(),
         kind: "baseRunning",
-        type,
-        movements,
-        rbiCreditBatterId: rbiCreditBatterId ?? undefined,
+        type: payload.type,
+        movements: payload.movements,
+        rbiCreditBatterId: payload.rbiCreditBatterId,
       },
     });
+    toast.success("走塁を記録しました");
+  };
+
+  const handleUndo = () => {
+    if (game.events.length === 0) return;
+    dispatch({ type: "UNDO_LAST_EVENT" });
+    toast("直前の記録を取り消しました");
   };
 
   const handleEndGame = () => {
-    dispatch({ type: "END_GAME" });
+    dispatch({
+      type: "ADD_EVENT",
+      event: {
+        id: generateId(),
+        kind: "gameControl",
+        action: "endGame",
+        reason: gameEndReason,
+      },
+    });
     setShowEndGameDialog(false);
-  };
-
-  const handleResetGame = () => {
-    dispatch({ type: "RESET_GAME" });
   };
 
   const handleLoadDummyGame = () => {
@@ -176,6 +178,27 @@ export function LiveScoring() {
             検証用
           </Button>
           <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="hidden h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10 sm:inline-flex"
+            disabled={game.events.length === 0}
+            onClick={handleUndo}
+            aria-label="直前の記録を取り消す"
+          >
+            <RotateCcw className="h-5 w-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={() => setSubstitutionOpen(true)}
+            aria-label="選手交代"
+          >
+            <UserRoundCog className="h-5 w-5" />
+          </Button>
+          <Button
             variant="ghost"
             size="icon"
             className="h-11 w-11 min-h-11 min-w-11 text-primary-foreground hover:bg-primary-foreground/10 touch-manipulation"
@@ -187,7 +210,7 @@ export function LiveScoring() {
         </div>
       </header>
 
-      <main className="flex-1 w-full space-y-4 px-3 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 xl:px-8">
+      <main className="flex-1 w-full space-y-4 px-3 pt-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] xl:px-8">
         <div className="mx-auto w-full max-w-lg space-y-4">
           <Scoreboard game={game} />
           <GameSituation
@@ -201,6 +224,43 @@ export function LiveScoring() {
         </div>
       </main>
 
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-[0.8fr_1fr_1.4fr] gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 touch-manipulation flex-col gap-0 text-[11px]"
+            disabled={game.events.length === 0}
+            onClick={handleUndo}
+          >
+            <RotateCcw className="h-4 w-4" />
+            戻す
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-12 touch-manipulation flex-col gap-0 text-[11px]"
+            disabled={
+              !game.currentState.runners.first &&
+              !game.currentState.runners.second &&
+              !game.currentState.runners.third
+            }
+            onClick={() => setBaseRunningOpen(true)}
+          >
+            <Footprints className="h-4 w-4" />
+            走塁
+          </Button>
+          <Button
+            type="button"
+            className="h-12 touch-manipulation text-sm font-bold"
+            onClick={() => setAtBatDialogOpen(true)}
+          >
+            <PlusCircle className="h-5 w-5" />
+            結果入力
+          </Button>
+        </div>
+      </div>
+
       <AtBatResultDialog
         game={game}
         open={atBatDialogOpen}
@@ -210,7 +270,10 @@ export function LiveScoring() {
       />
 
       <Sheet open={baseRunningOpen} onOpenChange={setBaseRunningOpen}>
-        <SheetContent side="bottom" className="max-h-[70vh]">
+        <SheetContent
+          side="bottom"
+          className="max-h-[85dvh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        >
           <SheetHeader>
             <SheetTitle>走塁・打席外</SheetTitle>
           </SheetHeader>
@@ -219,6 +282,25 @@ export function LiveScoring() {
             onEvent={(p) => {
               handleBaseRunningEvent(p);
               setBaseRunningOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={substitutionOpen} onOpenChange={setSubstitutionOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[85dvh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader>
+            <SheetTitle>選手交代</SheetTitle>
+          </SheetHeader>
+          <SubstitutionSheet
+            game={game}
+            onSubmit={(event) => {
+              dispatch({ type: "ADD_EVENT", event });
+              toast.success("選手交代を記録しました");
+              setSubstitutionOpen(false);
             }}
           />
         </SheetContent>
@@ -265,15 +347,31 @@ export function LiveScoring() {
               試合を終了すると、結果画面に移動します。後から修正することも可能です。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">終了理由</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                "規定回終了",
+                "時間切れ",
+                "コールド",
+                "降雨・中止",
+                "没収試合",
+                "その他",
+              ].map((reason) => (
+                <Button
+                  key={reason}
+                  type="button"
+                  variant={gameEndReason === reason ? "default" : "outline"}
+                  className="h-11"
+                  onClick={() => setGameEndReason(reason)}
+                >
+                  {reason}
+                </Button>
+              ))}
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <Button
-              variant="outline"
-              onClick={handleResetGame}
-              className="text-destructive hover:text-destructive"
-            >
-              試合を破棄
-            </Button>
             <AlertDialogAction onClick={handleEndGame}>
               試合終了
             </AlertDialogAction>

@@ -21,8 +21,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
 import type { AppGame } from "@/lib/app-state/types";
-import { BASE_RUNNING_LABELS } from "@/lib/types";
 import { getTimelineEntry } from "@/lib/app-state/selectors";
+import {
+  BaseRunningEventSheet,
+  type BaseRunningEventResult,
+} from "@/components/base-running-event-sheet";
 
 export function BaseRunningEditDialog({
   game,
@@ -57,6 +60,23 @@ export function BaseRunningEditDialog({
     onOpenChange(false);
   };
 
+  const handleUpdate = (payload: BaseRunningEventResult) => {
+    if (!eventId || !baseRun) return;
+    dispatch({
+      type: "UPDATE_EVENT",
+      eventId,
+      event: {
+        ...baseRun,
+        type: payload.type,
+        movements: payload.movements,
+        ...(payload.rbiCreditBatterId
+          ? { rbiCreditBatterId: payload.rbiCreditBatterId }
+          : { rbiCreditBatterId: undefined }),
+      },
+    });
+    onOpenChange(false);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,10 +92,14 @@ export function BaseRunningEditDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {baseRun && (
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
-              {BASE_RUNNING_LABELS[baseRun.type]}
-            </div>
+          {baseRun && timelineEntry && (
+            <BaseRunningEventSheet
+              game={game}
+              initialEvent={baseRun}
+              runnerSnapshot={timelineEntry.before.runners}
+              submitLabel="変更を保存"
+              onEvent={handleUpdate}
+            />
           )}
 
           {baseRun && (

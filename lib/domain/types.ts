@@ -53,6 +53,8 @@ export interface Player {
 export interface Team {
   name: string;
   players: Player[];
+  /** Players available to enter the game but not in the starting lineup. */
+  benchPlayers?: Player[];
   startingPitcherId?: string | null;
   startingPitcherName?: string;
 }
@@ -101,12 +103,39 @@ export interface BaseRunningEvent {
   rbiCreditBatterId?: string;
 }
 
-export type GameEvent = AtBatEvent | BaseRunningEvent;
+export type SubstitutionRole =
+  | "pinchHitter"
+  | "pinchRunner"
+  | "fielder"
+  | "pitcher";
+
+export interface SubstitutionEvent {
+  id: string;
+  kind: "substitution";
+  team: TeamSide;
+  inPlayerId: string;
+  outPlayerId: string;
+  role: SubstitutionRole;
+}
+
+export interface GameControlEvent {
+  id: string;
+  kind: "gameControl";
+  action: "endGame";
+  reason?: string;
+}
+
+export type GameEvent =
+  | AtBatEvent
+  | BaseRunningEvent
+  | SubstitutionEvent
+  | GameControlEvent;
 
 export type GameEndReason =
   | "homeAheadAfterTop"
   | "walkOff"
-  | "completedHalf";
+  | "completedHalf"
+  | "manual";
 
 export interface Score {
   away: number;
@@ -118,10 +147,13 @@ export interface Snapshot {
   half: Half;
   outs: number;
   runners: Runners;
+  /** Current player id in each batting-order slot. */
+  activeLineup: Record<TeamSide, string[]>;
   currentBatterIndex: Record<TeamSide, number>;
   score: Score;
   gameStatus: "live" | "finished";
   gameEndReason?: GameEndReason;
+  gameEndReasonDetail?: string;
 }
 
 export type ViolationSeverity = "warning" | "error";
@@ -142,7 +174,11 @@ export type ViolationCode =
   | "DESTINATION_OCCUPIED"
   | "DUPLICATE_DESTINATION"
   | "BACKWARD_MOVEMENT"
-  | "INVALID_RBI";
+  | "INVALID_RBI"
+  | "SUBSTITUTION_PLAYER_NOT_ON_TEAM"
+  | "SUBSTITUTION_OUT_PLAYER_NOT_ACTIVE"
+  | "SUBSTITUTION_IN_PLAYER_ALREADY_ACTIVE"
+  | "SUBSTITUTION_RUNNER_NOT_FOUND";
 
 export interface Violation {
   code: ViolationCode;

@@ -14,12 +14,14 @@ export type AtBatResult =
   | "strikeout"
   | "strikeoutSwinging"
   | "strikeoutLooking"
+  | "uncaughtThirdStrike"
   | "doublePlay"
   | "otherOut"
   | "walk"
   | "hitByPitch"
   | "error"
   | "sacrifice"
+  | "sacrificeFly"
   | "fieldersChoice"
   | "interference";
 
@@ -55,6 +57,8 @@ export interface Player {
 export interface Team {
   name: string;
   players: Player[];
+  /** Players available to enter after the game starts. */
+  benchPlayers?: Player[];
   /** When a pitcher appears in the batting order, this matches that player’s id. */
   startingPitcherId?: string | null;
   /** Starting pitcher name. Required; if a pitcher is in the lineup, this stays in sync with that row. */
@@ -122,12 +126,14 @@ export const RESULT_LABELS: Record<AtBatResult, string> = {
   strikeout: "三振",
   strikeoutSwinging: "空振り三振",
   strikeoutLooking: "見逃し三振",
+  uncaughtThirdStrike: "振り逃げ",
   doublePlay: "併殺打",
   otherOut: "その他アウト",
   walk: "フォアボール",
   hitByPitch: "デッドボール",
   error: "エラー",
   sacrifice: "犠打",
+  sacrificeFly: "犠牲フライ",
   fieldersChoice: "フィルダースチョイス",
   interference: "打撃妨害",
 };
@@ -192,12 +198,14 @@ export const AT_BAT_SCOREBOOK_SHORT: Record<AtBatResult, string> = {
   strikeout: "空三振",
   strikeoutSwinging: "空三振",
   strikeoutLooking: "見三振",
+  uncaughtThirdStrike: "振逃",
   doublePlay: "併",
   otherOut: "出",
   walk: "四球",
   hitByPitch: "死球",
   error: "E",
   sacrifice: "犠",
+  sacrificeFly: "犠飛",
   fieldersChoice: "FC",
   interference: "妨",
 };

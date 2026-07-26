@@ -14,7 +14,7 @@ import {
   getPlayerBattingStats,
 } from "@/lib/domain/stats";
 import {
-  formatBaseRunningNotation,
+  formatEventNotation,
   formatFieldingPosition,
 } from "@/lib/domain/notation";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
@@ -46,8 +46,15 @@ function getPlayerInningEntries(
     if (entry.event.kind === "atBat") {
       return entry.event.batterId === playerId;
     }
-    return entry.event.movements.some(
-      (movement) => movement.playerId === playerId
+    if (entry.event.kind === "baseRunning") {
+      return entry.event.movements.some(
+        (movement) => movement.playerId === playerId
+      );
+    }
+    return (
+      entry.event.kind === "substitution" &&
+      (entry.event.inPlayerId === playerId ||
+        entry.event.outPlayerId === playerId)
     );
   });
 }
@@ -56,8 +63,25 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
   const team = game.config.teams[teamSide];
   const innings = getEffectiveInningCount(game);
   const { timeline } = game;
+  const appearedSubstituteIds = new Set(
+    timeline.flatMap((entry) =>
+      entry.applied &&
+      entry.event.kind === "substitution" &&
+      entry.event.team === teamSide
+        ? [entry.event.inPlayerId]
+        : []
+    )
+  );
+  const players = [
+    ...team.players,
+    ...(team.benchPlayers ?? []).filter(
+      (player) =>
+        game.currentState.activeLineup[teamSide].includes(player.id) ||
+        appearedSubstituteIds.has(player.id)
+    ),
+  ];
 
-  const totals = team.players.reduce(
+  const totals = players.reduce(
     (acc, p) => {
       const s = getPlayerBattingStats(timeline, p.id);
       return {
@@ -161,12 +185,13 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
             </tr>
           </thead>
           <tbody>
-            {team.players.map((player, index) => {
+            {players.map((player, index) => {
+              const isStarter = index < team.players.length;
               const stats = getPlayerBattingStats(timeline, player.id);
               return (
                 <tr key={player.id} className="border-b border-border last:border-b-0">
                   <td className="sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-card px-1 py-1.5 text-center font-mono text-[11px] text-muted-foreground tabular-nums sm:text-xs">
-                    {index + 1}
+                    {isStarter ? index + 1 : "↳"}
                   </td>
                   <td className="sticky left-8 z-10 w-28 min-w-28 max-w-28 border-r border-border bg-card px-1 py-1.5 font-medium leading-snug text-foreground">
                     <span className="line-clamp-2 text-xs sm:text-sm">{player.name}</span>
@@ -214,7 +239,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                                   <ScorebookAtBatLine entry={entry} />
                                 ) : (
                                   <span className="text-[10px] leading-tight text-primary">
-                                    {formatBaseRunningNotation(entry.event)}
+                                    {formatEventNotation(entry.event)}
                                   </span>
                                 )}
                               </Fragment>

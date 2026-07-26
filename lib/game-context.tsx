@@ -12,7 +12,7 @@ import {
 import type { AppGame, GameAction } from "./app-state/types";
 import { gameReducer } from "./app-state/reducer";
 import { toPersistedGame } from "./app-state/selectors";
-import { createBrowserGameStorage } from "./storage/local-storage";
+import { createBrowserGameRepository } from "./storage/local-storage";
 
 interface GameContextValue {
   game: AppGame | null;
@@ -26,7 +26,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = createBrowserGameStorage().load();
+    const stored = createBrowserGameRepository().loadActive();
     if (stored) {
       dispatch({ type: "LOAD_GAME", game: stored });
     }
@@ -35,11 +35,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    const storage = createBrowserGameStorage();
+    const repository = createBrowserGameRepository();
     if (game) {
-      storage.save(toPersistedGame(game));
+      repository.save(toPersistedGame(game));
     } else {
-      storage.clear();
+      repository.clearActive();
     }
   }, [game, hydrated]);
 

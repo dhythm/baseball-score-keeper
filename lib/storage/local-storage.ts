@@ -15,6 +15,7 @@ import type {
 
 export const SCHEMA_VERSION = 2 as const;
 export const DEFAULT_GAME_STORAGE_KEY = "baseball-scorer-game";
+export const DEFAULT_GAME_HISTORY_STORAGE_KEY = "baseball-scorer-games";
 
 export interface PersistedGameV2 {
   id: string;
@@ -29,6 +30,11 @@ export interface StorageEnvelopeV2 {
   game: PersistedGameV2;
 }
 
+export interface GameHistoryEnvelopeV2 {
+  schemaVersion: typeof SCHEMA_VERSION;
+  games: PersistedGameV2[];
+}
+
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -38,6 +44,16 @@ export interface StorageLike {
 export interface GameStorage {
   load(): PersistedGameV2 | null;
   save(game: PersistedGameV2): void;
+  clear(): void;
+}
+
+export interface GameRepository {
+  list(): PersistedGameV2[];
+  find(id: string): PersistedGameV2 | null;
+  save(game: PersistedGameV2): void;
+  remove(id: string): void;
+  loadActive(): PersistedGameV2 | null;
+  clearActive(): void;
   clear(): void;
 }
 
@@ -58,12 +74,14 @@ const LEGACY_RESULT_MAP: Record<LegacyAtBatResult, AtBatResult> = {
   strikeout: "strikeoutSwinging",
   strikeoutSwinging: "strikeoutSwinging",
   strikeoutLooking: "strikeoutLooking",
+  uncaughtThirdStrike: "uncaughtThirdStrike",
   doublePlay: "otherOut",
   otherOut: "otherOut",
   walk: "walk",
   hitByPitch: "hitByPitch",
   error: "error",
   sacrifice: "sacrifice",
+  sacrificeFly: "sacrificeFly",
   fieldersChoice: "fieldersChoice",
   interference: "interference",
 };
@@ -89,6 +107,16 @@ function migrateTeam(team: LegacyGame["teams"]["away"]): GameConfig["teams"]["aw
       order: player.order,
       ...(player.position == null ? {} : { position: player.position }),
     })),
+    ...(team.benchPlayers === undefined
+      ? {}
+      : {
+          benchPlayers: team.benchPlayers.map((player) => ({
+            id: player.id,
+            name: player.name,
+            order: player.order,
+            ...(player.position == null ? {} : { position: player.position }),
+          })),
+        }),
     ...(team.startingPitcherId === undefined
       ? {}
       : { startingPitcherId: team.startingPitcherId }),
@@ -240,36 +268,71 @@ function isV2Envelope(value: unknown): value is StorageEnvelopeV2 {
   if (
     !isRecord(value) ||
     value.schemaVersion !== SCHEMA_VERSION ||
-    !isRecord(value.game) ||
-    typeof value.game.id !== "string" ||
-    typeof value.game.date !== "string" ||
-    !["setup", "live", "finished"].includes(String(value.game.status)) ||
-    !isRecord(value.game.config) ||
-    typeof value.game.config.regulationInnings !== "number" ||
-    !isRecord(value.game.config.teams) ||
-    !isStoredTeam(value.game.config.teams.away) ||
-    !isStoredTeam(value.game.config.teams.home) ||
-    !Array.isArray(value.game.events)
+    !isPersistedGameV2(value.game)
   ) {
     return false;
   }
-  return (
-    value.game.events.every((event) => {
+  return true;
+}
+
+function isPersistedGameV2(value: unknown): value is PersistedGameV2 {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.date !== "string" ||
+    !["setup", "live", "finished"].includes(String(value.status)) ||
+    !isRecord(value.config) ||
+    typeof value.config.regulationInnings !== "number" ||
+    !isRecord(value.config.teams) ||
+    !isStoredTeam(value.config.teams.away) ||
+    !isStoredTeam(value.config.teams.home) ||
+    !Array.isArray(value.events)
+  ) {
+    return false;
+  }
+  return value.events.every((event) => {
       if (
         !isRecord(event) ||
-        typeof event.id !== "string" ||
-        !Array.isArray(event.movements)
+        typeof event.id !== "string"
       ) {
         return false;
       }
       if (event.kind === "atBat") {
         return (
           typeof event.batterId === "string" &&
-          typeof event.result === "string"
+          typeof event.result === "string" &&
+          Array.isArray(event.movements)
         );
       }
-      return event.kind === "baseRunning" && typeof event.type === "string";
-    })
+      if (event.kind === "baseRunning") {
+        return (
+          typeof event.type === "string" && Array.isArray(event.movements)
+        );
+      }
+      if (event.kind === "substitution") {
+        return (
+          ["away", "home"].includes(String(event.team)) &&
+          typeof event.inPlayerId === "string" &&
+          typeof event.outPlayerId === "string" &&
+          ["pinchHitter", "pinchRunner", "fielder", "pitcher"].includes(
+            String(event.role)
+          )
+        );
+      }
+      return (
+        event.kind === "gameControl" &&
+        event.action === "endGame" &&
+        (event.reason === undefined || typeof event.reason === "string")
+      );
+    });
+}
+
+function isStoredPlayer(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.order === "number"
   );
 }
 
@@ -278,13 +341,10 @@ function isStoredTeam(value: unknown): boolean {
     isRecord(value) &&
     typeof value.name === "string" &&
     Array.isArray(value.players) &&
-    value.players.every(
-      (player) =>
-        isRecord(player) &&
-        typeof player.id === "string" &&
-        typeof player.name === "string" &&
-        typeof player.order === "number"
-    )
+    value.players.every(isStoredPlayer) &&
+    (value.benchPlayers === undefined ||
+      (Array.isArray(value.benchPlayers) &&
+        value.benchPlayers.every(isStoredPlayer)))
   );
 }
 
@@ -352,4 +412,112 @@ export function createBrowserGameStorage(
     throw new Error("localStorage is unavailable outside the browser");
   }
   return createGameStorage(window.localStorage, key);
+}
+
+export function serializeGameHistory(games: PersistedGameV2[]): string {
+  const envelope: GameHistoryEnvelopeV2 = {
+    schemaVersion: SCHEMA_VERSION,
+    games,
+  };
+  return JSON.stringify(envelope);
+}
+
+export function parseGameHistory(serialized: string): PersistedGameV2[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serialized);
+  } catch {
+    throw new StoredGameFormatError("stored game history is not valid JSON");
+  }
+
+  if (
+    !isRecord(parsed) ||
+    parsed.schemaVersion !== SCHEMA_VERSION ||
+    !Array.isArray(parsed.games) ||
+    !parsed.games.every(isPersistedGameV2)
+  ) {
+    throw new StoredGameFormatError("malformed game history");
+  }
+  return parsed.games;
+}
+
+function newestFirst(
+  games: readonly PersistedGameV2[]
+): PersistedGameV2[] {
+  return [...games].sort(
+    (left, right) =>
+      right.date.localeCompare(left.date) || right.id.localeCompare(left.id)
+  );
+}
+
+export function createGameRepository(
+  storage: StorageLike,
+  historyKey = DEFAULT_GAME_HISTORY_STORAGE_KEY,
+  activeKey = DEFAULT_GAME_STORAGE_KEY
+): GameRepository {
+  const activeStorage = createGameStorage(storage, activeKey);
+
+  function loadHistory(): PersistedGameV2[] {
+    const serialized = storage.getItem(historyKey);
+    if (serialized === null) return [];
+    try {
+      return parseGameHistory(serialized);
+    } catch {
+      storage.removeItem(historyKey);
+      return [];
+    }
+  }
+
+  function list(): PersistedGameV2[] {
+    const gamesById = new Map(
+      loadHistory().map((game) => [game.id, game] as const)
+    );
+    const activeGame = activeStorage.load();
+    if (activeGame) gamesById.set(activeGame.id, activeGame);
+    return newestFirst([...gamesById.values()]);
+  }
+
+  return {
+    list,
+    find(id) {
+      return list().find((game) => game.id === id) ?? null;
+    },
+    save(game) {
+      const gamesById = new Map(
+        list().map((storedGame) => [storedGame.id, storedGame] as const)
+      );
+      gamesById.set(game.id, game);
+      storage.setItem(
+        historyKey,
+        serializeGameHistory(newestFirst([...gamesById.values()]))
+      );
+      activeStorage.save(game);
+    },
+    remove(id) {
+      const activeGame = activeStorage.load();
+      const remainingGames = list().filter((game) => game.id !== id);
+      storage.setItem(historyKey, serializeGameHistory(remainingGames));
+      if (activeGame?.id === id) activeStorage.clear();
+    },
+    loadActive() {
+      return activeStorage.load();
+    },
+    clearActive() {
+      activeStorage.clear();
+    },
+    clear() {
+      storage.removeItem(historyKey);
+      activeStorage.clear();
+    },
+  };
+}
+
+export function createBrowserGameRepository(
+  historyKey = DEFAULT_GAME_HISTORY_STORAGE_KEY,
+  activeKey = DEFAULT_GAME_STORAGE_KEY
+): GameRepository {
+  if (typeof window === "undefined") {
+    throw new Error("localStorage is unavailable outside the browser");
+  }
+  return createGameRepository(window.localStorage, historyKey, activeKey);
 }

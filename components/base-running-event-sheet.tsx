@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,236 +11,298 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BaseRunningType, Base, TeamSide } from "@/lib/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getPlayerById } from "@/lib/app-state/selectors";
+import type {
+  Base,
+  BaseRunningEvent,
+  BaseRunningType,
+  RunnerDestination,
+  RunnerMovement,
+  Runners,
+  TeamSide,
+} from "@/lib/domain/types";
 
 export interface BaseRunningEventResult {
-  runnerId: string;
   type: BaseRunningType;
-  to: Base | "home" | "out";
-  /** ホームインかつ打点として記録する場合の打者 id */
+  movements: RunnerMovement[];
   rbiCreditBatterId?: string;
 }
 
 interface BaseRunningEventSheetProps {
   game: AppGame;
   onEvent: (payload: BaseRunningEventResult) => void;
+  initialEvent?: BaseRunningEvent;
+  runnerSnapshot?: Runners;
+  submitLabel?: string;
 }
 
-const EVENT_TYPES: {
-  type: BaseRunningType;
-  label: string;
-  needsDestination: boolean;
-}[] = [
-  { type: "steal", label: "盗塁", needsDestination: true },
-  { type: "caughtStealing", label: "盗塁死", needsDestination: false },
-  { type: "wildPitch", label: "ワイルドピッチ", needsDestination: true },
-  { type: "passedBall", label: "パスボール", needsDestination: true },
-  { type: "pickOff", label: "牽制死", needsDestination: false },
-  { type: "balk", label: "ボーク", needsDestination: true },
+const EVENT_TYPES: { type: BaseRunningType; label: string; isOut: boolean }[] = [
+  { type: "steal", label: "盗塁", isOut: false },
+  { type: "caughtStealing", label: "盗塁死", isOut: true },
+  { type: "wildPitch", label: "暴投", isOut: false },
+  { type: "passedBall", label: "捕逸", isOut: false },
+  { type: "pickOff", label: "牽制死", isOut: true },
+  { type: "balk", label: "ボーク", isOut: false },
 ];
 
-export function BaseRunningEventSheet({ game, onEvent }: BaseRunningEventSheetProps) {
-  const { runners } = game.currentState;
-  const teamSide: TeamSide = game.currentState.half === "top" ? "away" : "home";
-  const battingTeam = game.teams[teamSide];
-
-  const [selectedRunner, setSelectedRunner] = useState<string | null>(null);
-  const [selectedRunnerBase, setSelectedRunnerBase] = useState<Base | null>(null);
-  const [selectedType, setSelectedType] = useState<BaseRunningType | null>(null);
-  const [selectedDestination, setSelectedDestination] = useState<Base | "home" | null>(null);
-  const [creditRbi, setCreditRbi] = useState(false);
-  const [rbiBatterId, setRbiBatterId] = useState<string>("");
-
-  const runnerOptions: { id: string; name: string; base: Base }[] = [];
-  if (runners.first) {
-    const player = getPlayerById(game, runners.first);
-    if (player) runnerOptions.push({ id: runners.first, name: player.name, base: "first" });
+function destinationOptions(base: Base) {
+  if (base === "first") {
+    return [
+      { value: "second", label: "2塁" },
+      { value: "third", label: "3塁" },
+      { value: "home", label: "ホーム" },
+    ] as const;
   }
-  if (runners.second) {
-    const player = getPlayerById(game, runners.second);
-    if (player) runnerOptions.push({ id: runners.second, name: player.name, base: "second" });
+  if (base === "second") {
+    return [
+      { value: "third", label: "3塁" },
+      { value: "home", label: "ホーム" },
+    ] as const;
   }
-  if (runners.third) {
-    const player = getPlayerById(game, runners.third);
-    if (player) runnerOptions.push({ id: runners.third, name: player.name, base: "third" });
-  }
+  return [{ value: "home", label: "ホーム" }] as const;
+}
 
-  const handleRunnerSelect = (runnerId: string) => {
-    setSelectedRunner(runnerId);
-    const runner = runnerOptions.find((r) => r.id === runnerId);
-    setSelectedRunnerBase(runner?.base ?? null);
-    setSelectedDestination(null);
-    setCreditRbi(false);
-    setRbiBatterId("");
-  };
+export function BaseRunningEventSheet({
+  game,
+  onEvent,
+  initialEvent,
+  runnerSnapshot,
+  submitLabel = "走塁を記録",
+}: BaseRunningEventSheetProps) {
+  const runners = runnerSnapshot ?? game.currentState.runners;
+  const teamSide: TeamSide =
+    game.currentState.half === "top" ? "away" : "home";
+  const battingTeam = game.config.teams[teamSide];
+  const [selectedType, setSelectedType] = useState<BaseRunningType>(
+    initialEvent?.type ?? "steal"
+  );
+  const [selectedRunnerIds, setSelectedRunnerIds] = useState<string[]>(
+    initialEvent?.movements.map((movement) => movement.playerId) ?? []
+  );
+  const [destinationByRunnerId, setDestinationByRunnerId] = useState<
+    Record<string, RunnerDestination>
+  >(
+    Object.fromEntries(
+      initialEvent?.movements.map((movement) => [
+        movement.playerId,
+        movement.to,
+      ]) ?? []
+    )
+  );
+  const [creditRbi, setCreditRbi] = useState(
+    initialEvent?.movements.some((movement) => movement.isRBI) ?? false
+  );
+  const [rbiBatterId, setRbiBatterId] = useState(
+    initialEvent?.rbiCreditBatterId ?? ""
+  );
 
-  const getDestinationOptions = (base: Base): { value: Base | "home"; label: string }[] => {
-    switch (base) {
-      case "first":
-        return [
-          { value: "second", label: "2塁" },
-          { value: "third", label: "3塁" },
-          { value: "home", label: "ホーム" },
-        ];
-      case "second":
-        return [
-          { value: "third", label: "3塁" },
-          { value: "home", label: "ホーム" },
-        ];
-      case "third":
-        return [{ value: "home", label: "ホーム" }];
-      default:
-        return [];
+  useEffect(() => {
+    if (!initialEvent) return;
+    setSelectedType(initialEvent.type);
+    setSelectedRunnerIds(
+      initialEvent.movements.map((movement) => movement.playerId)
+    );
+    setDestinationByRunnerId(
+      Object.fromEntries(
+        initialEvent.movements.map((movement) => [
+          movement.playerId,
+          movement.to,
+        ])
+      )
+    );
+    setCreditRbi(
+      initialEvent.movements.some((movement) => movement.isRBI)
+    );
+    setRbiBatterId(initialEvent.rbiCreditBatterId ?? "");
+  }, [initialEvent]);
+
+  const runnerOptions = useMemo(() => {
+    const options: { id: string; name: string; base: Base }[] = [];
+    (["first", "second", "third"] as const).forEach((base) => {
+      const playerId = runners[base];
+      if (!playerId) return;
+      const player = getPlayerById(game, playerId);
+      if (player) options.push({ id: playerId, name: player.name, base });
+    });
+    return options;
+  }, [game, runners]);
+
+  const eventType = EVENT_TYPES.find((option) => option.type === selectedType)!;
+  const hasHomeDestination = selectedRunnerIds.some(
+    (playerId) => destinationByRunnerId[playerId] === "home"
+  );
+  const allDestinationsSelected = selectedRunnerIds.every(
+    (playerId) =>
+      eventType.isOut || Boolean(destinationByRunnerId[playerId])
+  );
+  const canSubmit =
+    selectedRunnerIds.length > 0 &&
+    allDestinationsSelected &&
+    (!creditRbi || (hasHomeDestination && Boolean(rbiBatterId)));
+
+  const toggleRunner = (playerId: string, checked: boolean) => {
+    setSelectedRunnerIds((current) =>
+      checked
+        ? [...current, playerId]
+        : current.filter((id) => id !== playerId)
+    );
+    if (!checked) {
+      setDestinationByRunnerId((current) => {
+        const next = { ...current };
+        delete next[playerId];
+        return next;
+      });
     }
   };
-
-  const selectedEventType = EVENT_TYPES.find((e) => e.type === selectedType);
-  const needsDestination = selectedEventType?.needsDestination ?? false;
-
-  const toHome =
-    needsDestination && selectedDestination === "home";
-  const canSubmit =
-    selectedRunner &&
-    selectedType &&
-    (!needsDestination || selectedDestination) &&
-    (!toHome || !creditRbi || !!rbiBatterId);
 
   const handleSubmit = () => {
-    if (!selectedRunner || !selectedType) return;
-
-    let destination: Base | "home" | "out";
-    if (needsDestination && selectedDestination) {
-      destination = selectedDestination;
-    } else {
-      destination = "out";
-    }
-
-    const isRbiHome = destination === "home" && creditRbi && !!rbiBatterId;
-
+    if (!canSubmit) return;
+    const movements = selectedRunnerIds.flatMap((playerId) => {
+      const runner = runnerOptions.find((option) => option.id === playerId);
+      if (!runner) return [];
+      const to = eventType.isOut
+        ? "out"
+        : destinationByRunnerId[playerId];
+      if (!to) return [];
+      return [
+        {
+          playerId,
+          from: runner.base,
+          to,
+          isRBI: to === "home" && creditRbi,
+        },
+      ];
+    });
     onEvent({
-      runnerId: selectedRunner,
       type: selectedType,
-      to: destination,
-      rbiCreditBatterId: isRbiHome ? rbiBatterId : undefined,
+      movements,
+      ...(creditRbi && rbiBatterId
+        ? { rbiCreditBatterId: rbiBatterId }
+        : {}),
     });
   };
 
-  return (
-    <div className="space-y-6 py-4">
-      <p className="text-xs leading-snug text-muted-foreground">
-        盗塁・暴投・パスボールなど、打席外の走塁を記録します。ホームイン時は必要に応じて打点（どの打者に記録するか）を選べます。
+  if (runnerOptions.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        塁上に走者がいません。
       </p>
+    );
+  }
 
-      <div>
-        <Label className="mb-3 block text-sm font-medium">対象ランナー</Label>
-        <div className="flex flex-wrap gap-2">
-          {runnerOptions.map((runner) => (
+  return (
+    <div className="space-y-5 py-4">
+      <div className="space-y-2">
+        <Label>イベント</Label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {EVENT_TYPES.map((option) => (
             <Button
-              key={runner.id}
-              variant={selectedRunner === runner.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleRunnerSelect(runner.id)}
+              key={option.type}
+              type="button"
+              variant={selectedType === option.type ? "default" : "outline"}
+              className="h-11 touch-manipulation"
+              onClick={() => {
+                setSelectedType(option.type);
+                setDestinationByRunnerId({});
+                setCreditRbi(false);
+                setRbiBatterId("");
+              }}
             >
-              {runner.base === "first" && "1塁"}
-              {runner.base === "second" && "2塁"}
-              {runner.base === "third" && "3塁"}
-              : {runner.name}
+              {option.label}
             </Button>
           ))}
         </div>
       </div>
 
-      {selectedRunner && (
-        <div>
-          <Label className="mb-3 block text-sm font-medium">イベント</Label>
-          <div className="flex flex-wrap gap-2">
-            {EVENT_TYPES.map(({ type, label }) => (
-              <Button
-                key={type}
-                variant={selectedType === type ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setSelectedType(type);
-                  setSelectedDestination(null);
-                  setCreditRbi(false);
-                  setRbiBatterId("");
-                }}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="space-y-2">
+        <Label>対象走者（複数選択可）</Label>
+        {runnerOptions.map((runner) => {
+          const selected = selectedRunnerIds.includes(runner.id);
+          return (
+            <div
+              key={runner.id}
+              className="space-y-3 rounded-xl border border-border p-3"
+            >
+              <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={(checked) =>
+                    toggleRunner(runner.id, checked === true)
+                  }
+                />
+                <span className="font-medium">
+                  {runner.base === "first"
+                    ? "1塁"
+                    : runner.base === "second"
+                      ? "2塁"
+                      : "3塁"}
+                  ・{runner.name}
+                </span>
+              </label>
+              {selected && !eventType.isOut && (
+                <Select
+                  value={destinationByRunnerId[runner.id] ?? ""}
+                  onValueChange={(value) =>
+                    setDestinationByRunnerId((current) => ({
+                      ...current,
+                      [runner.id]: value as RunnerDestination,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue placeholder="進塁先を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationOptions(runner.base).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-      {selectedRunner && selectedType && needsDestination && selectedRunnerBase && (
-        <div>
-          <Label className="mb-3 block text-sm font-medium">進塁先</Label>
-          <RadioGroup
-            value={selectedDestination ?? ""}
-            onValueChange={(value) => {
-              setSelectedDestination(value as Base | "home");
-              if (value !== "home") {
-                setCreditRbi(false);
-                setRbiBatterId("");
-              }
-            }}
-            className="flex flex-wrap gap-3"
-          >
-            {getDestinationOptions(selectedRunnerBase).map(({ value, label }) => (
-              <div key={value} className="flex items-center space-x-2">
-                <RadioGroupItem value={value} id={value} />
-                <Label htmlFor={value} className="cursor-pointer">
-                  {label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-      )}
-
-      {toHome && (
-        <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
-          <div className="flex items-start gap-2">
+      {hasHomeDestination && (
+        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3">
             <Checkbox
-              id="credit-rbi"
               checked={creditRbi}
-              onCheckedChange={(v) => {
-                setCreditRbi(!!v);
-                if (!v) setRbiBatterId("");
+              onCheckedChange={(checked) => {
+                setCreditRbi(checked === true);
+                if (checked !== true) setRbiBatterId("");
               }}
             />
-            <Label htmlFor="credit-rbi" className="cursor-pointer text-sm leading-snug">
-              打点として記録する
-              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                盗塁・暴投などで通常は打点になりません。記録規則上打点とする場合のみチェックしてください。
-              </span>
-            </Label>
-          </div>
+            <span className="text-sm font-medium">打点として記録する</span>
+          </label>
           {creditRbi && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">打点を付ける打者</Label>
-              <Select value={rbiBatterId} onValueChange={setRbiBatterId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="選手を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {battingTeam.players.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      #{p.order} {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={rbiBatterId} onValueChange={setRbiBatterId}>
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue placeholder="打点を付ける打者" />
+              </SelectTrigger>
+              <SelectContent>
+                {battingTeam.players.map((player) => (
+                  <SelectItem key={player.id} value={player.id}>
+                    #{player.order} {player.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       )}
 
-      <Button className="w-full touch-manipulation" disabled={!canSubmit} onClick={handleSubmit}>
-        確定
+      <Button
+        type="button"
+        className="h-12 w-full text-base font-semibold"
+        disabled={!canSubmit}
+        onClick={handleSubmit}
+      >
+        {submitLabel}
       </Button>
     </div>
   );

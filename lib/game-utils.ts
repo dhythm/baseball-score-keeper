@@ -21,6 +21,7 @@ import {
 export function isStrikeoutResult(r: AtBatResult): boolean {
   return (
     r === "strikeout" || r === "strikeoutSwinging" || r === "strikeoutLooking"
+    || r === "uncaughtThirdStrike"
   );
 }
 

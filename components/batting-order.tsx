@@ -15,7 +15,7 @@ import type { AppGame } from "@/lib/app-state/types";
 import { getEffectiveInningCount } from "@/lib/app-state/selectors";
 import {
   formatAtBatNotation,
-  formatBaseRunningNotation,
+  formatEventNotation,
 } from "@/lib/domain/notation";
 import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
 import { BaseRunningEditDialog } from "@/components/base-running-edit-dialog";
@@ -38,11 +38,31 @@ function OrderList({
 }) {
   const team = game.teams[teamSide];
   const batterIndex = game.currentState.currentBatterIndex[teamSide];
-  const playerCount = team.players.length;
+  const activePlayerIds = game.currentState.activeLineup[teamSide];
+  const playerCount = activePlayerIds.length;
   const nextIndex =
     playerCount > 0 ? (batterIndex + 1) % playerCount : 0;
+  const currentPlayerId = activePlayerIds[batterIndex];
+  const nextPlayerId = activePlayerIds[nextIndex];
   const showNextBadge =
     isBattingTeam && playerCount > 1 && nextIndex !== batterIndex;
+  const appearedSubstituteIds = new Set(
+    game.timeline.flatMap((entry) =>
+      entry.applied &&
+      entry.event.kind === "substitution" &&
+      entry.event.team === teamSide
+        ? [entry.event.inPlayerId]
+        : []
+    )
+  );
+  const players = [
+    ...team.players,
+    ...(team.benchPlayers ?? []).filter(
+      (player) =>
+        activePlayerIds.includes(player.id) ||
+        appearedSubstituteIds.has(player.id)
+    ),
+  ];
 
   const inningCount = getEffectiveInningCount(game);
   const halfForTeam = teamSide === "away" ? "top" : "bottom";
@@ -107,10 +127,12 @@ function OrderList({
           </tr>
         </thead>
         <tbody>
-          {team.players.map((player, i) => {
-            const isCurrent = isBattingTeam && i === batterIndex;
+          {players.map((player, i) => {
+            const isStarter = i < team.players.length;
+            const isCurrent =
+              isBattingTeam && player.id === currentPlayerId;
             const isNext =
-              showNextBadge && i === nextIndex && !isCurrent;
+              showNextBadge && player.id === nextPlayerId && !isCurrent;
 
             return (
               <tr
@@ -128,7 +150,7 @@ function OrderList({
                     !isCurrent && !isNext && stickyTdBg
                   )}
                 >
-                  {i + 1}
+                  {isStarter ? i + 1 : "↳"}
                 </td>
                 <td
                   className={cn(
@@ -170,9 +192,13 @@ function OrderList({
                       entry.inning === inningNum &&
                       (entry.event.kind === "atBat"
                         ? entry.event.batterId === player.id
-                        : entry.event.movements.some(
+                        : entry.event.kind === "baseRunning"
+                          ? entry.event.movements.some(
                             (movement) => movement.playerId === player.id
-                          ))
+                          )
+                          : entry.event.kind === "substitution" &&
+                            (entry.event.inPlayerId === player.id ||
+                              entry.event.outPlayerId === player.id))
                   );
                   const isLiveColumn =
                     inningNum === game.currentState.inning &&
@@ -192,10 +218,10 @@ function OrderList({
                         <div className="flex min-h-10 flex-col items-center justify-center gap-0.5">
                           {cellEntries.map((entry) => {
                             const event = entry.event;
-                            const label =
-                              event.kind === "atBat"
-                                ? formatAtBatNotation(event)
-                                : formatBaseRunningNotation(event);
+                            const label = formatEventNotation(event);
+                            const editable =
+                              event.kind === "atBat" ||
+                              event.kind === "baseRunning";
                             return (
                             <button
                               key={event.id}
@@ -206,8 +232,9 @@ function OrderList({
                                   ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                                   : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                               )}
-                              onClick={() => onEditAtBat(event.id)}
-                              aria-label={`${inningNum}回の${event.kind === "atBat" ? "打席" : "走塁"} ${label}を修正`}
+                              disabled={!editable}
+                              onClick={() => editable && onEditAtBat(event.id)}
+                              aria-label={`${inningNum}回の記録 ${label}${editable ? "を修正" : ""}`}
                             >
                               {event.kind === "atBat" ? (
                                 <ScorebookAtBatLine entry={entry} />

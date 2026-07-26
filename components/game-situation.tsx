@@ -100,7 +100,7 @@ export function GameSituation({
         </div>
 
         {(onRecordResult || onOpenBaseRunning) && (
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-4 hidden flex-col gap-2 sm:flex sm:flex-row">
             {onRecordResult && (
               <Button
                 type="button"

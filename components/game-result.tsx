@@ -19,11 +19,18 @@ import { Scoreboard } from "@/components/scoreboard";
 import { BattingScorebookTable } from "@/components/batting-scorebook-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGame } from "@/lib/game-context";
-import type { Half, TeamSide, TimelineEntry } from "@/lib/domain/types";
+import type { Half, TimelineEntry } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getPlayerById } from "@/lib/app-state/selectors";
 import { formatEventNotation } from "@/lib/domain/notation";
-import { RotateCcw, Edit } from "lucide-react";
+import { RotateCcw, Edit, Share2, Download } from "lucide-react";
+import { toast } from "sonner";
+import { toPersistedGame } from "@/lib/app-state/selectors";
+import {
+  exportGameAsJson,
+  exportGameAsText,
+} from "@/lib/export/game-log";
+import { getStartingPitcherStats } from "@/lib/domain/pitching";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,7 +131,15 @@ function InningDetails({ game }: { game: AppGame }) {
                         );
                       }
 
-                      return null;
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <span className="w-6">#{index + 1}</span>
+                          <span>{formatEventNotation(event)}</span>
+                        </div>
+                      );
                     })}
                   </div>
                 </AccordionContent>
@@ -132,6 +147,37 @@ function InningDetails({ game }: { game: AppGame }) {
             );
           })}
         </Accordion>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PitchingSummary({ game }: { game: AppGame }) {
+  return (
+    <Card className="gap-3 border-border py-4">
+      <CardHeader className="px-4 py-0">
+        <CardTitle className="text-base">先発投手成績</CardTitle>
+        <CardDescription className="text-xs">
+          投手交代を記録した時点までの成績です。
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-2">
+        {(["away", "home"] as const).map((side) => {
+          const team = game.config.teams[side];
+          const stats = getStartingPitcherStats(game.timeline, side);
+          return (
+            <div key={side} className="rounded-lg border border-border p-3">
+              <p className="truncate text-sm font-semibold">
+                {team.startingPitcherName || `${team.name} 先発`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.inningsPitched}回・被安打{stats.hitsAllowed}・失点
+                {stats.runsAllowed}・与四球{stats.walksAllowed}・奪三振
+                {stats.strikeouts}
+              </p>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -152,6 +198,35 @@ export function GameResult() {
     dispatch({ type: "RESUME_GAME" });
   };
 
+  const handleShare = async () => {
+    const text = exportGameAsText(toPersistedGame(game));
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "試合結果", text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        toast.success("試合結果をコピーしました");
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        toast.error("共有できませんでした");
+      }
+    }
+  };
+
+  const handleJsonDownload = () => {
+    const json = exportGameAsJson(toPersistedGame(game));
+    const url = URL.createObjectURL(
+      new Blob([json], { type: "application/json" })
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `scorebook-${game.date.slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success("JSONを書き出しました");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
@@ -161,8 +236,14 @@ export function GameResult() {
         </h1>
       </header>
 
-      <main className="w-full max-w-full mx-auto space-y-4 px-3 pt-4 pb-[max(7rem,env(safe-area-inset-bottom)+5.5rem)] sm:px-4 md:max-w-3xl md:mx-auto lg:max-w-5xl xl:max-w-6xl xl:px-8">
+      <main className="w-full max-w-full mx-auto space-y-4 px-3 pt-4 pb-[max(11rem,env(safe-area-inset-bottom)+9.5rem)] sm:px-4 md:max-w-3xl md:mx-auto lg:max-w-5xl xl:max-w-6xl xl:px-8">
         <Scoreboard game={game} />
+        {game.currentState.gameEndReasonDetail && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
+            終了理由: {game.currentState.gameEndReasonDetail}
+          </p>
+        )}
+        <PitchingSummary game={game} />
         <Card className="border-border py-4 gap-2">
           <CardHeader className="px-4 pb-0 pt-0 sm:px-6">
             <CardTitle className="text-base">打撃成績</CardTitle>
@@ -200,9 +281,23 @@ export function GameResult() {
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-full space-y-2 md:max-w-3xl lg:max-w-5xl xl:max-w-6xl">
+          <div className="grid grid-cols-2 gap-2">
+            <Button className="h-11" onClick={handleShare}>
+              <Share2 className="mr-2 h-4 w-4" />
+              共有
+            </Button>
+            <Button
+              variant="secondary"
+              className="h-11"
+              onClick={handleJsonDownload}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              JSON
+            </Button>
+          </div>
           <Button
             variant="outline"
-            className="w-full h-10"
+            className="h-11 w-full"
             onClick={handleContinueGame}
           >
             <Edit className="h-4 w-4 mr-2" />

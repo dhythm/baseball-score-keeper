@@ -4,13 +4,34 @@ import type { Game as LegacyGame, GameEvent as LegacyEvent } from "../types";
 import type { PersistedGameV2 } from "./local-storage";
 import {
   DEFAULT_GAME_STORAGE_KEY,
+  DEFAULT_GAME_HISTORY_STORAGE_KEY,
   SCHEMA_VERSION,
+  createGameRepository,
   createGameStorage,
   createStorageEnvelope,
   migrateV1Game,
   parseStoredGame,
   serializeStoredGame,
 } from "./local-storage";
+
+function persistedGame(
+  overrides: Partial<PersistedGameV2> = {}
+): PersistedGameV2 {
+  return {
+    id: "game",
+    date: "2025-03-21",
+    status: "live",
+    config: {
+      regulationInnings: 7,
+      teams: {
+        away: { name: "Away", players: [] },
+        home: { name: "Home", players: [] },
+      },
+    },
+    events: [],
+    ...overrides,
+  };
+}
 
 function legacyEvent(
   overrides: Partial<LegacyEvent> & Pick<LegacyEvent, "id">
@@ -301,5 +322,132 @@ describe("localStorage adapter", () => {
         })
       )
     ).toThrow("malformed schema version 2 game");
+  });
+});
+
+describe("multiple game repository", () => {
+  function memoryStorage(initial: Record<string, string> = {}) {
+    const values = new Map(Object.entries(initial));
+    return {
+      values,
+      storage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    };
+  }
+
+  it("upserts games without duplicating ids and lists newest games first", () => {
+    const { values, storage } = memoryStorage();
+    const repository = createGameRepository(storage);
+
+    repository.save(persistedGame({ id: "older", date: "2025-03-20" }));
+    repository.save(persistedGame({ id: "newer", date: "2025-03-22" }));
+    repository.save(
+      persistedGame({ id: "older", date: "2025-03-23", status: "finished" })
+    );
+
+    expect(repository.list().map((game) => game.id)).toEqual([
+      "older",
+      "newer",
+    ]);
+    expect(repository.find("older")?.status).toBe("finished");
+    expect(
+      JSON.parse(values.get(DEFAULT_GAME_HISTORY_STORAGE_KEY) ?? "{}")
+    ).toMatchObject({ schemaVersion: 2 });
+    expect(
+      JSON.parse(values.get(DEFAULT_GAME_STORAGE_KEY) ?? "{}").game.id
+    ).toBe("older");
+  });
+
+  it("includes the legacy active-game key when no history has been saved", () => {
+    const active = persistedGame({ id: "active" });
+    const { storage } = memoryStorage({
+      [DEFAULT_GAME_STORAGE_KEY]: serializeStoredGame(active),
+    });
+
+    expect(createGameRepository(storage).list()).toEqual([active]);
+  });
+
+  it("merges a missing active game into existing history", () => {
+    const active = persistedGame({ id: "active", date: "2025-03-22" });
+    const archived = persistedGame({ id: "archived", date: "2025-03-20" });
+    const seeded = memoryStorage();
+    const firstRepository = createGameRepository(seeded.storage);
+    firstRepository.save(archived);
+    seeded.values.set(DEFAULT_GAME_STORAGE_KEY, serializeStoredGame(active));
+
+    expect(firstRepository.list().map((game) => game.id)).toEqual([
+      "active",
+      "archived",
+    ]);
+  });
+
+  it("deletes a game and clears the active key only when it points to that game", () => {
+    const { values, storage } = memoryStorage();
+    const repository = createGameRepository(storage);
+    repository.save(persistedGame({ id: "one" }));
+    repository.save(persistedGame({ id: "two" }));
+
+    repository.remove("one");
+    expect(repository.list().map((game) => game.id)).toEqual(["two"]);
+    expect(values.has(DEFAULT_GAME_STORAGE_KEY)).toBe(true);
+
+    repository.remove("two");
+    expect(repository.list()).toEqual([]);
+    expect(values.has(DEFAULT_GAME_STORAGE_KEY)).toBe(false);
+  });
+
+  it("isolates corrupt history and still recovers the compatible active game", () => {
+    const active = persistedGame({ id: "active" });
+    const { values, storage } = memoryStorage({
+      [DEFAULT_GAME_STORAGE_KEY]: serializeStoredGame(active),
+      [DEFAULT_GAME_HISTORY_STORAGE_KEY]: "{broken",
+    });
+
+    expect(createGameRepository(storage).list()).toEqual([active]);
+    expect(values.has(DEFAULT_GAME_HISTORY_STORAGE_KEY)).toBe(false);
+  });
+
+  it("round-trips Phase 3 substitutions, bench players, and manual game end", () => {
+    const game = persistedGame({
+      config: {
+        regulationInnings: 7,
+        teams: {
+          away: {
+            name: "Away",
+            players: [{ id: "starter", name: "Starter", order: 1 }],
+            benchPlayers: [{ id: "pinch", name: "Pinch", order: 10 }],
+          },
+          home: {
+            name: "Home",
+            players: [{ id: "home-1", name: "Home 1", order: 1 }],
+          },
+        },
+      },
+      events: [
+        {
+          id: "substitution",
+          kind: "substitution",
+          team: "away",
+          inPlayerId: "pinch",
+          outPlayerId: "starter",
+          role: "pinchHitter",
+        },
+        {
+          id: "manual-end",
+          kind: "gameControl",
+          action: "endGame",
+          reason: "降雨コールド",
+        },
+      ],
+    });
+    const { storage } = memoryStorage();
+    const repository = createGameRepository(storage);
+
+    repository.save(game);
+
+    expect(repository.find(game.id)).toEqual(game);
   });
 });

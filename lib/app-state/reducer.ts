@@ -112,6 +112,14 @@ export function gameReducer(
 
     case "RESUME_GAME":
       if (!state) return null;
-      return deriveGame(persistedInput(state), false);
+      return deriveGame(
+        persistedInput(
+          state,
+          state.events.at(-1)?.kind === "gameControl"
+            ? state.events.slice(0, -1)
+            : state.events
+        ),
+        false
+      );
   }
 }

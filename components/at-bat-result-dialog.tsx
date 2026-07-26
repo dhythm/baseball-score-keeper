@@ -21,14 +21,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
 import type { AtBatResult } from "@/lib/types";
+import type { RunnerMovement } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getTimelineEntry } from "@/lib/app-state/selectors";
 import {
   createAtBatEvent,
-  getDefaultMovementsForSelection,
+  mapAtBatSelectionResult,
 } from "@/lib/app-state/event-factory";
 import { formatAtBatResult } from "@/lib/domain/notation";
 import { AtBatResultFlow } from "@/components/at-bat-result-flow";
+import { RunnerAdvanceSheet } from "@/components/runner-advance-sheet";
 
 export type AtBatResultDialogProps = {
   game: AppGame;
@@ -52,6 +54,11 @@ export function AtBatResultDialog({
   const { dispatch } = useGame();
   const [resetToken, setResetToken] = useState(0);
   const [showDelete, setShowDelete] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<{
+    result: AtBatResult;
+    detail?: string;
+    initialMovements?: RunnerMovement[];
+  } | null>(null);
 
   useEffect(() => {
     if (open) setResetToken((k) => k + 1);
@@ -81,25 +88,30 @@ export function AtBatResultDialog({
     if (!eventId || !atBat) return;
     const before = timelineEntry?.before;
     if (!before) return;
-    const movements = getDefaultMovementsForSelection(
+    setPendingEdit({
       result,
       detail,
-      before.runners,
-      atBat.batterId,
-      before.outs
-    );
+      ...(mapAtBatSelectionResult(result, detail?.trim() ?? "") === atBat.result
+        ? { initialMovements: atBat.movements }
+        : {}),
+    });
+    onOpenChange(false);
+  };
+
+  const handleEditMovements = (movements: RunnerMovement[]) => {
+    if (!eventId || !atBat || !pendingEdit) return;
     dispatch({
       type: "UPDATE_EVENT",
       eventId,
       event: createAtBatEvent({
         id: eventId,
         batterId: atBat.batterId,
-        result,
-        detail,
+        result: pendingEdit.result,
+        detail: pendingEdit.detail,
         movements,
       }),
     });
-    onOpenChange(false);
+    setPendingEdit(null);
   };
 
   const handleDelete = () => {
@@ -164,6 +176,25 @@ export function AtBatResultDialog({
           )}
         </DialogContent>
       </Dialog>
+
+      {mode === "edit" && atBat && timelineEntry && pendingEdit && (
+        <RunnerAdvanceSheet
+          game={game}
+          result={pendingEdit.result}
+          detail={pendingEdit.detail}
+          open
+          context={{
+            runners: timelineEntry.before.runners,
+            outs: timelineEntry.before.outs,
+            batterId: atBat.batterId,
+          }}
+          initialMovementsOverride={pendingEdit.initialMovements}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setPendingEdit(null);
+          }}
+          onConfirm={handleEditMovements}
+        />
+      )}
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>

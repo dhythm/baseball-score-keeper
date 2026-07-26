@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { AtBatResult, Base } from "@/lib/types";
-import type { RunnerMovement } from "@/lib/domain/types";
+import type { RunnerMovement, Runners } from "@/lib/domain/types";
 import type { AppGame } from "@/lib/app-state/types";
 import { getCurrentBatter, getPlayerById } from "@/lib/app-state/selectors";
 import { getDefaultMovementsForSelection } from "@/lib/app-state/event-factory";
@@ -40,6 +40,12 @@ interface RunnerAdvanceSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (movements: RunnerMovement[], outsInPlay: number, runsScored: number) => void;
+  context?: {
+    runners: Runners;
+    outs: number;
+    batterId: string;
+  };
+  initialMovementsOverride?: RunnerMovement[];
 }
 
 interface RunnerState {
@@ -56,11 +62,17 @@ export function RunnerAdvanceSheet({
   open,
   onOpenChange,
   onConfirm,
+  context,
+  initialMovementsOverride,
 }: RunnerAdvanceSheetProps) {
-  const { runners, outs } = game.currentState;
-  const currentBatter = getCurrentBatter(game);
+  const runners = context?.runners ?? game.currentState.runners;
+  const outs = context?.outs ?? game.currentState.outs;
+  const currentBatter = context
+    ? getPlayerById(game, context.batterId)
+    : getCurrentBatter(game);
 
   const initialMovements = useMemo(() => {
+    if (initialMovementsOverride) return initialMovementsOverride;
     if (!currentBatter) return [];
     return getDefaultMovementsForSelection(
       result,
@@ -69,7 +81,14 @@ export function RunnerAdvanceSheet({
       currentBatter.id,
       outs
     );
-  }, [result, detail, runners, currentBatter, outs]);
+  }, [
+    result,
+    detail,
+    runners,
+    currentBatter,
+    outs,
+    initialMovementsOverride,
+  ]);
 
   const [runnerStates, setRunnerStates] = useState<RunnerState[]>([]);
   const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>({});

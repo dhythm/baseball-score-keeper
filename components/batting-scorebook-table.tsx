@@ -117,27 +117,27 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
     "text-center font-mono text-[10px] leading-tight tabular-nums px-1 py-1.5 align-top text-primary sm:text-xs max-w-[3.5rem]";
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="isolate overflow-hidden rounded-xl border border-border bg-card">
       <div className="overflow-x-auto touch-pan-x">
         <table className="w-max min-w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
               <th
-                className="sticky left-0 z-20 w-8 min-w-8 border-r border-border bg-muted/50 px-1 py-2 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
+                className="sticky left-0 z-20 w-8 min-w-8 border-r border-border bg-muted px-1 py-2 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
                 scope="col"
                 title="打順"
               >
                 #
               </th>
               <th
-                className="sticky left-8 z-20 w-28 min-w-28 max-w-28 border-r border-border bg-muted/50 px-1 py-2 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
+                className="sticky left-8 z-20 w-28 min-w-28 max-w-28 border-r border-border bg-muted px-1 py-2 text-left text-[10px] font-semibold text-muted-foreground sm:text-xs"
                 scope="col"
                 title="選手名"
               >
                 選手
               </th>
               <th
-                className="sticky left-36 z-20 w-8 min-w-8 border-r border-border bg-muted/50 px-0 py-2 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
+                className="sticky left-36 z-20 w-8 min-w-8 border-r border-border bg-muted px-0 py-2 text-center text-[10px] font-semibold text-muted-foreground sm:text-xs"
                 scope="col"
                 title="守備位置"
               >
@@ -253,11 +253,11 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               );
             })}
             <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-              <td className="sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-muted/40 px-1 py-2 text-center text-[10px] sm:text-xs">
+              <td className="sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-muted px-1 py-2 text-center text-[10px] sm:text-xs">
                 計
               </td>
-              <td className="sticky left-8 z-10 w-28 min-w-28 border-r border-border bg-muted/40 px-1 py-2 sm:text-xs" />
-              <td className="sticky left-36 z-10 w-8 min-w-8 border-r border-border bg-muted/40 px-0 py-2" />
+              <td className="sticky left-8 z-10 w-28 min-w-28 border-r border-border bg-muted px-1 py-2 sm:text-xs" />
+              <td className="sticky left-36 z-10 w-8 min-w-8 border-r border-border bg-muted px-0 py-2" />
               <td className={cn(tdStat, "text-foreground")}>{totals.atBats}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.hits}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.runs}</td>

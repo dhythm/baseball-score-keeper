@@ -31,16 +31,16 @@ export function Scoreboard({ game }: ScoreboardProps) {
   }, [currentInning]);
 
   return (
-    <div className="mx-auto w-max max-w-full overflow-x-auto rounded-lg border border-border bg-card">
+    <div className="isolate mx-auto w-full max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(20,50,28,0.06)]">
       <div className="flex">
-        <div className="flex-shrink-0 bg-secondary/50">
-          <div className="h-8 w-20 flex items-center justify-center text-xs font-semibold text-muted-foreground border-b border-border">
+        <div className="flex-shrink-0 bg-secondary/70">
+          <div className="flex h-9 w-24 items-center justify-center border-b border-border text-[11px] font-bold tracking-wide text-muted-foreground">
             チーム
           </div>
-          <div className="h-8 w-20 flex items-center px-2 text-sm font-medium text-foreground border-b border-border truncate">
+          <div className="flex h-9 w-24 items-center truncate border-b border-border px-3 text-sm font-bold text-foreground">
             {game.config.teams.away.name || "先攻"}
           </div>
-          <div className="h-8 w-20 flex items-center px-2 text-sm font-medium text-foreground truncate">
+          <div className="flex h-9 w-24 items-center truncate px-3 text-sm font-bold text-foreground">
             {game.config.teams.home.name || "後攻"}
           </div>
         </div>
@@ -58,7 +58,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
                 <div key={inning} className="flex-shrink-0 w-8">
                   <div
                     className={cn(
-                      "h-8 flex items-center justify-center text-xs font-semibold border-b border-border",
+                      "flex h-9 items-center justify-center border-b border-border text-xs font-bold",
                       isCurrentInning
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground"
@@ -68,7 +68,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
                   </div>
                   <div
                     className={cn(
-                      "h-8 flex items-center justify-center text-sm font-mono border-b border-border tabular-nums",
+                      "flex h-9 items-center justify-center border-b border-border font-mono text-sm tabular-nums",
                       isCurrentInning && game.currentState.half === "top"
                         ? "bg-accent/20"
                         : ""
@@ -78,7 +78,7 @@ export function Scoreboard({ game }: ScoreboardProps) {
                   </div>
                   <div
                     className={cn(
-                      "h-8 flex items-center justify-center text-sm font-mono tabular-nums",
+                      "flex h-9 items-center justify-center font-mono text-sm tabular-nums",
                       isCurrentInning && game.currentState.half === "bottom"
                         ? "bg-accent/20"
                         : ""
@@ -95,35 +95,35 @@ export function Scoreboard({ game }: ScoreboardProps) {
         <div className="flex-shrink-0 border-l border-border">
           <div className="flex">
             <div className="w-10">
-              <div className="h-8 flex items-center justify-center text-xs font-semibold text-muted-foreground border-b border-border bg-secondary/50">
+              <div className="flex h-9 items-center justify-center border-b border-border bg-secondary/70 text-xs font-bold text-muted-foreground">
                 R
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono font-bold text-primary border-b border-border tabular-nums">
+              <div className="flex h-9 items-center justify-center border-b border-border font-mono text-sm font-bold text-primary tabular-nums">
                 {scores.awayTotal}
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono font-bold text-primary tabular-nums">
+              <div className="flex h-9 items-center justify-center font-mono text-sm font-bold text-primary tabular-nums">
                 {scores.homeTotal}
               </div>
             </div>
             <div className="w-8 border-l border-border">
-              <div className="h-8 flex items-center justify-center text-xs font-semibold text-muted-foreground border-b border-border bg-secondary/50">
+              <div className="flex h-9 items-center justify-center border-b border-border bg-secondary/70 text-xs font-bold text-muted-foreground">
                 H
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono text-foreground border-b border-border tabular-nums">
+              <div className="flex h-9 items-center justify-center border-b border-border font-mono text-sm text-foreground tabular-nums">
                 {awayStats.hits}
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono text-foreground tabular-nums">
+              <div className="flex h-9 items-center justify-center font-mono text-sm text-foreground tabular-nums">
                 {homeStats.hits}
               </div>
             </div>
             <div className="w-8 border-l border-border">
-              <div className="h-8 flex items-center justify-center text-xs font-semibold text-muted-foreground border-b border-border bg-secondary/50">
+              <div className="flex h-9 items-center justify-center border-b border-border bg-secondary/70 text-xs font-bold text-muted-foreground">
                 E
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono text-foreground border-b border-border tabular-nums">
+              <div className="flex h-9 items-center justify-center border-b border-border font-mono text-sm text-foreground tabular-nums">
                 {awayStats.errors}
               </div>
-              <div className="h-8 flex items-center justify-center text-sm font-mono text-foreground tabular-nums">
+              <div className="flex h-9 items-center justify-center font-mono text-sm text-foreground tabular-nums">
                 {homeStats.errors}
               </div>
             </div>

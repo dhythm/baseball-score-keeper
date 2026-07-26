@@ -558,7 +558,7 @@ export function GameSetup() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3">
+      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 py-3 text-primary-foreground shadow-sm">
         <h1 className="text-lg font-bold flex items-center gap-2">
           <span className="text-xl">&#9918;</span>
           スコアブック
@@ -653,7 +653,7 @@ export function GameSetup() {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(20,50,28,0.12)]">
         <div className="max-w-lg mx-auto lg:max-w-6xl lg:px-6">
           <Button
             className="w-full h-12 text-base font-semibold"

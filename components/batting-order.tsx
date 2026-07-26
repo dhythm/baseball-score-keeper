@@ -82,7 +82,7 @@ function OrderList({
 
   return (
     <div
-      className="overflow-x-auto rounded-lg border border-border bg-card touch-pan-x"
+      className="isolate overflow-x-auto rounded-xl border border-border bg-card touch-pan-x"
       aria-label={`${team.name || (teamSide === "away" ? "先攻" : "後攻")}の打順`}
     >
       <table className="w-max min-w-full border-collapse text-sm">
@@ -284,7 +284,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-0 pt-0 sm:px-6">
-        <div className="hidden min-w-0 lg:grid lg:grid-cols-2 lg:gap-6">
+        <div className="hidden min-w-0 min-[1800px]:grid min-[1800px]:grid-cols-2 min-[1800px]:gap-6">
           <div className="min-w-0 space-y-2">
             <div className="flex items-baseline justify-between gap-2 border-b border-border pb-1">
               <h3 className="truncate text-sm font-semibold text-foreground">
@@ -323,7 +323,7 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
           </div>
         </div>
 
-        <div className="min-w-0 lg:hidden">
+        <div className="min-w-0 min-[1800px]:hidden">
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TeamSide)}

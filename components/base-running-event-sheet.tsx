@@ -192,7 +192,7 @@ export function BaseRunningEventSheet({
   }
 
   return (
-    <div className="space-y-5 py-4">
+    <div className="space-y-5 px-4 py-5 sm:px-5">
       <div className="space-y-2">
         <Label>イベント</Label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

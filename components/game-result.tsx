@@ -229,14 +229,14 @@ export function GameResult() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-        <h1 className="text-lg font-bold flex items-center gap-2">
+      <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-primary-foreground shadow-sm">
+        <h1 className="flex items-center gap-2 text-lg font-extrabold">
           <span className="text-xl">&#9918;</span>
           試合終了
         </h1>
       </header>
 
-      <main className="w-full max-w-full mx-auto space-y-4 px-3 pt-4 pb-[max(11rem,env(safe-area-inset-bottom)+9.5rem)] sm:px-4 md:max-w-3xl md:mx-auto lg:max-w-5xl xl:max-w-6xl xl:px-8">
+      <main className="mx-auto w-full max-w-5xl space-y-4 px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-6">
         <Scoreboard game={game} />
         {game.currentState.gameEndReasonDetail && (
           <p className="rounded-lg bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
@@ -277,12 +277,12 @@ export function GameResult() {
           </CardContent>
         </Card>
         <InningDetails game={game} />
-      </main>
-
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto w-full max-w-full space-y-2 md:max-w-3xl lg:max-w-5xl xl:max-w-6xl">
-          <div className="grid grid-cols-2 gap-2">
-            <Button className="h-11" onClick={handleShare}>
+        <section className="rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
+          <h2 className="mb-3 text-sm font-bold text-foreground">
+            試合データ
+          </h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Button variant="secondary" className="h-11" onClick={handleShare}>
               <Share2 className="mr-2 h-4 w-4" />
               共有
             </Button>
@@ -294,24 +294,24 @@ export function GameResult() {
               <Download className="mr-2 h-4 w-4" />
               JSON
             </Button>
+            <Button
+              variant="outline"
+              className="col-span-2 h-11 sm:col-span-1"
+              onClick={handleContinueGame}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              試合を続ける
+            </Button>
+            <Button
+              className="col-span-2 h-11 font-bold sm:col-span-1"
+              onClick={() => setShowNewGameDialog(true)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              新しい試合
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            className="h-11 w-full"
-            onClick={handleContinueGame}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            試合を続ける
-          </Button>
-          <Button
-            className="w-full h-12 text-base font-semibold"
-            onClick={() => setShowNewGameDialog(true)}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            新しい試合を開始
-          </Button>
-        </div>
-      </div>
+        </section>
+      </main>
 
       <AlertDialog open={showNewGameDialog} onOpenChange={setShowNewGameDialog}>
         <AlertDialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { DevelopmentScenarioPanel } from "@/components/development-scenario-panel";
 import { GameHistory } from "@/components/game-history";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import {
 import type { FieldingPosition, Player, Team } from "@/lib/types";
 import { FIELDING_POSITION_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { shouldShowDevelopmentTools } from "@/lib/development-mode";
 import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -574,6 +576,7 @@ export function GameSetup() {
     setAwayTeam(SAMPLE_PRESET.away());
     setHomeTeam(SAMPLE_PRESET.home());
   };
+  const showDevelopmentTools = shouldShowDevelopmentTools();
 
   return (
     <div className="min-h-screen bg-background">
@@ -595,16 +598,11 @@ export function GameSetup() {
             イニング数と両チームの選手を登録して試合を始めます。
           </p>
         </div>
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-full"
-            onClick={applySamplePreset}
-          >
-            プリセット（両チーム9人・サンプル名）
-          </Button>
-        </div>
+        {showDevelopmentTools && (
+          <DevelopmentScenarioPanel
+            onApplySamplePreset={applySamplePreset}
+          />
+        )}
 
         <Card className="gap-3 border-border py-4">
           <CardHeader className="px-4 py-0">
@@ -647,7 +645,7 @@ export function GameSetup() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              草野球標準の7回を初期値にしています。同点の場合は自動で延長します。
+              同点の場合は自動で延長します。
             </p>
           </CardContent>
         </Card>

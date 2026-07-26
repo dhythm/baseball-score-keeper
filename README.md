@@ -145,6 +145,8 @@ pnpm dev
 
 すべてをまとめて確認する場合は `pnpm check` を実行します。コードをPrettierで整形する場合は `pnpm format` を使用してください。
 
+GitHub Actionsでは、Pull Requestと`main`へのpush時に、format、lint、TypeScript、Knip、testを独立したジョブとして並列実行します。
+
 Knipでは、ブラウザから直接読み込まれる `public/sw.js` のみを実行時ファイルとして検査対象外にしています。
 
 ### ディレクトリ構成

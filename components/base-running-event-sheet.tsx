@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,11 @@ import type {
   Snapshot,
   TeamSide,
 } from "@/lib/domain/types";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  getConventionalAdvanceDestination,
+  getSafeRunnerDestinations,
+} from "@/lib/app-state/runner-options";
 
 export interface BaseRunningEventResult {
   type: BaseRunningType;
@@ -46,23 +51,6 @@ const EVENT_TYPES: { type: BaseRunningType; label: string; isOut: boolean }[] =
     { type: "pickOff", label: "牽制死", isOut: true },
     { type: "balk", label: "ボーク", isOut: false },
   ];
-
-function destinationOptions(base: Base) {
-  if (base === "first") {
-    return [
-      { value: "second", label: "2塁" },
-      { value: "third", label: "3塁" },
-      { value: "home", label: "ホーム" },
-    ] as const;
-  }
-  if (base === "second") {
-    return [
-      { value: "third", label: "3塁" },
-      { value: "home", label: "ホーム" },
-    ] as const;
-  }
-  return [{ value: "home", label: "ホーム" }] as const;
-}
 
 export function BaseRunningEventSheet({
   game,
@@ -97,6 +85,7 @@ export function BaseRunningEventSheet({
   const [rbiBatterId, setRbiBatterId] = useState(
     initialEvent?.rbiCreditBatterId ?? ""
   );
+  const autoInitializedRunnerKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!initialEvent) return;
@@ -139,10 +128,32 @@ export function BaseRunningEventSheet({
     allDestinationsSelected &&
     (!creditRbi || (hasHomeDestination && Boolean(rbiBatterId)));
 
+  useEffect(() => {
+    if (initialEvent || runnerOptions.length !== 1) return;
+    const runner = runnerOptions[0];
+    const key = `${runner.id}:${runner.base}`;
+    if (autoInitializedRunnerKey.current === key) return;
+    autoInitializedRunnerKey.current = key;
+    setSelectedRunnerIds([runner.id]);
+    setDestinationByRunnerId({
+      [runner.id]: getConventionalAdvanceDestination(runner.base),
+    });
+  }, [initialEvent, runnerOptions]);
+
   const toggleRunner = (playerId: string, checked: boolean) => {
     setSelectedRunnerIds((current) =>
       checked ? [...current, playerId] : current.filter((id) => id !== playerId)
     );
+    if (checked) {
+      const runner = runnerOptions.find((option) => option.id === playerId);
+      if (runner && !eventType.isOut) {
+        setDestinationByRunnerId((current) => ({
+          ...current,
+          [playerId]:
+            current[playerId] ?? getConventionalAdvanceDestination(runner.base),
+        }));
+      }
+    }
     if (!checked) {
       setDestinationByRunnerId((current) => {
         const next = { ...current };
@@ -196,7 +207,27 @@ export function BaseRunningEventSheet({
               className="h-11 touch-manipulation"
               onClick={() => {
                 setSelectedType(option.type);
-                setDestinationByRunnerId({});
+                setDestinationByRunnerId(
+                  option.isOut
+                    ? {}
+                    : Object.fromEntries(
+                        selectedRunnerIds.flatMap((playerId) => {
+                          const runner = runnerOptions.find(
+                            (candidate) => candidate.id === playerId
+                          );
+                          return runner
+                            ? [
+                                [
+                                  playerId,
+                                  getConventionalAdvanceDestination(
+                                    runner.base
+                                  ),
+                                ],
+                              ]
+                            : [];
+                        })
+                      )
+                );
                 setCreditRbi(false);
                 setRbiBatterId("");
               }}
@@ -233,26 +264,35 @@ export function BaseRunningEventSheet({
                 </span>
               </label>
               {selected && !eventType.isOut && (
-                <Select
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
                   value={destinationByRunnerId[runner.id] ?? ""}
                   onValueChange={(value) =>
+                    value &&
                     setDestinationByRunnerId((current) => ({
                       ...current,
                       [runner.id]: value as RunnerDestination,
                     }))
                   }
+                  className="grid w-full grid-cols-3 gap-2"
                 >
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="進塁先を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {destinationOptions(runner.base).map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
+                  {getSafeRunnerDestinations(runner.base)
+                    .filter((destination) => destination !== runner.base)
+                    .map((destination) => (
+                      <ToggleGroupItem
+                        key={destination}
+                        value={destination}
+                        className="min-h-11"
+                      >
+                        {destination === "second"
+                          ? "2塁"
+                          : destination === "third"
+                            ? "3塁"
+                            : "ホーム"}
+                      </ToggleGroupItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                </ToggleGroup>
               )}
             </div>
           );

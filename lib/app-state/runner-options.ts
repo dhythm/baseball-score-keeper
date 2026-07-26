@@ -13,3 +13,11 @@ export function getSafeRunnerDestinations(
       return ["third", "home"];
   }
 }
+
+export function getConventionalAdvanceDestination(
+  from: Exclude<RunnerMovement["from"], "batter">
+): Exclude<RunnerDestination, "out"> {
+  if (from === "first") return "second";
+  if (from === "second") return "third";
+  return "home";
+}

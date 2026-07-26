@@ -254,6 +254,14 @@ export function AtBatResultFlow({
         <p className="text-xs font-medium text-muted-foreground">
           {titleForStep()}
         </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-12 w-full text-sm font-bold touch-manipulation"
+          onClick={() => onSubmit("strikeout")}
+        >
+          三振
+        </Button>
         <div className="grid grid-cols-3 gap-2">
           {CATEGORIES.slice(0, 3).map(({ id, label, variant }) => (
             <Button

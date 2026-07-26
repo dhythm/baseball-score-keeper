@@ -163,7 +163,12 @@ export function LiveScoring() {
   const handleUndo = () => {
     if (game.events.length === 0) return;
     dispatch({ type: "UNDO_LAST_EVENT" });
-    toast("直前の記録を取り消しました");
+    toast("直前の記録を取り消しました", {
+      action: {
+        label: "やり直す",
+        onClick: () => dispatch({ type: "REDO_LAST_EVENT" }),
+      },
+    });
   };
 
   const handleEndGame = () => {

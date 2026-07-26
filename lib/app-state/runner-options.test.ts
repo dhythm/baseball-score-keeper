@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getSafeRunnerDestinations } from "./runner-options";
+import {
+  getConventionalAdvanceDestination,
+  getSafeRunnerDestinations,
+} from "./runner-options";
 
 describe("getSafeRunnerDestinations", () => {
   it("allows a batter to reach any base or home regardless of the result", () => {
@@ -25,5 +28,11 @@ describe("getSafeRunnerDestinations", () => {
       "home",
     ]);
     expect(getSafeRunnerDestinations("third")).toEqual(["third", "home"]);
+  });
+
+  it("chooses the conventional next base for a one-runner steal", () => {
+    expect(getConventionalAdvanceDestination("first")).toBe("second");
+    expect(getConventionalAdvanceDestination("second")).toBe("third");
+    expect(getConventionalAdvanceDestination("third")).toBe("home");
   });
 });

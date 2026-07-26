@@ -237,12 +237,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isV2Envelope(value: unknown): value is StorageEnvelopeV2 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== SCHEMA_VERSION ||
+    !isRecord(value.game) ||
+    typeof value.game.id !== "string" ||
+    typeof value.game.date !== "string" ||
+    !["setup", "live", "finished"].includes(String(value.game.status)) ||
+    !isRecord(value.game.config) ||
+    typeof value.game.config.regulationInnings !== "number" ||
+    !isRecord(value.game.config.teams) ||
+    !isStoredTeam(value.game.config.teams.away) ||
+    !isStoredTeam(value.game.config.teams.home) ||
+    !Array.isArray(value.game.events)
+  ) {
+    return false;
+  }
+  return (
+    value.game.events.every((event) => {
+      if (
+        !isRecord(event) ||
+        typeof event.id !== "string" ||
+        !Array.isArray(event.movements)
+      ) {
+        return false;
+      }
+      if (event.kind === "atBat") {
+        return (
+          typeof event.batterId === "string" &&
+          typeof event.result === "string"
+        );
+      }
+      return event.kind === "baseRunning" && typeof event.type === "string";
+    })
+  );
+}
+
+function isStoredTeam(value: unknown): boolean {
   return (
     isRecord(value) &&
-    value.schemaVersion === SCHEMA_VERSION &&
-    isRecord(value.game) &&
-    isRecord(value.game.config) &&
-    Array.isArray(value.game.events)
+    typeof value.name === "string" &&
+    Array.isArray(value.players) &&
+    value.players.every(
+      (player) =>
+        isRecord(player) &&
+        typeof player.id === "string" &&
+        typeof player.name === "string" &&
+        typeof player.order === "number"
+    )
   );
 }
 
@@ -269,6 +311,9 @@ export function parseStoredGame(serialized: string): PersistedGameV2 {
   if (isLegacyGame(parsed)) return migrateV1Game(parsed);
 
   if (isRecord(parsed) && "schemaVersion" in parsed) {
+    if (parsed.schemaVersion === SCHEMA_VERSION) {
+      throw new StoredGameFormatError("malformed schema version 2 game");
+    }
     throw new StoredGameFormatError(
       `unsupported schema version: ${String(parsed.schemaVersion)}`
     );

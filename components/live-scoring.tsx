@@ -18,13 +18,17 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useGame } from "@/lib/game-context";
-import type { AtBatResult, RunnerMovement, Base, Half } from "@/lib/types";
+import type { AtBatResult } from "@/lib/types";
+import type { RunnerMovement, Base } from "@/lib/domain/types";
 import {
-  getCurrentBatter,
-  getDefaultMovements,
-  applyRunnerMovements,
   isAutoAdvanceAtBatResult,
+  generateId,
 } from "@/lib/game-utils";
+import { getCurrentBatter } from "@/lib/app-state/selectors";
+import {
+  createAtBatEvent,
+  getDefaultMovementsForSelection,
+} from "@/lib/app-state/event-factory";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Flag } from "lucide-react";
 import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
+import { migrateV1Game } from "@/lib/storage/local-storage";
 
 export function LiveScoring() {
   const { game, dispatch } = useGame();
@@ -57,36 +62,23 @@ export function LiveScoring() {
     const isAutoAdvance = isAutoAdvanceAtBatResult(result);
 
     if (isAutoAdvance) {
-      const movements = getDefaultMovements(
+      const movements = getDefaultMovementsForSelection(
         result,
+        detail,
         game.currentState.runners,
         currentBatter.id,
         game.currentState.outs
       );
 
-      const { runsScored, outsAdded } = applyRunnerMovements(
-        game.currentState.runners,
-        movements,
-        3,
-        game.currentState.outs
-      );
-
-      const teamSide = game.currentState.half === "top" ? "away" : "home";
-
       dispatch({
         type: "ADD_EVENT",
-        event: {
-          type: "atBat",
-          inning: game.currentState.inning,
-          half: game.currentState.half,
-          team: teamSide,
+        event: createAtBatEvent({
+          id: generateId(),
           batterId: currentBatter.id,
           result,
-          resultDetail: detail,
-          runnerMovements: movements,
-          outsInPlay: outsAdded,
-          runsScored,
-        },
+          detail,
+          movements,
+        }),
       });
     } else {
       setPendingResult(result);
@@ -96,27 +88,20 @@ export function LiveScoring() {
 
   const handleRunnerAdvanceConfirm = (
     movements: RunnerMovement[],
-    outsInPlay: number,
-    runsScored: number
+    _outsInPlay: number,
+    _runsScored: number
   ) => {
     if (!currentBatter || !pendingResult) return;
 
-    const teamSide = game.currentState.half === "top" ? "away" : "home";
-
     dispatch({
       type: "ADD_EVENT",
-      event: {
-        type: "atBat",
-        inning: game.currentState.inning,
-        half: game.currentState.half,
-        team: teamSide,
+      event: createAtBatEvent({
+        id: generateId(),
         batterId: currentBatter.id,
         result: pendingResult,
-        resultDetail: pendingDetail,
-        runnerMovements: movements,
-        outsInPlay,
-        runsScored,
-      },
+        detail: pendingDetail,
+        movements,
+      }),
     });
 
     setPendingResult(null);
@@ -125,8 +110,7 @@ export function LiveScoring() {
 
   const handleBaseRunningEvent = (payload: BaseRunningEventResult) => {
     const { runnerId, type, to, rbiCreditBatterId } = payload;
-    const { runners, inning, half, outs } = game.currentState;
-    const teamSide = half === "top" ? "away" : "home";
+    const { runners, outs } = game.currentState;
 
     let from: Base;
     if (runners.first === runnerId) from = "first";
@@ -146,22 +130,14 @@ export function LiveScoring() {
       },
     ];
 
-    const isOut = ["caughtStealing", "pickOff"].includes(type) || to === "out";
-    const runsScored = scoresRun ? 1 : 0;
-    const outsInPlay = isOut ? 1 : 0;
-
     dispatch({
       type: "ADD_EVENT",
       event: {
-        type: "baseRunning",
-        inning,
-        half: half as Half,
-        team: teamSide,
-        baseRunningType: type,
-        runnerMovements: movements,
+        id: generateId(),
+        kind: "baseRunning",
+        type,
+        movements,
         rbiCreditBatterId: rbiCreditBatterId ?? undefined,
-        outsInPlay,
-        runsScored,
       },
     });
   };
@@ -176,7 +152,10 @@ export function LiveScoring() {
   };
 
   const handleLoadDummyGame = () => {
-    dispatch({ type: "LOAD_GAME", game: createDummyGameAfterSevenInnings() });
+    dispatch({
+      type: "LOAD_GAME",
+      game: migrateV1Game(createDummyGameAfterSevenInnings()),
+    });
     setShowDummyDialog(false);
   };
 
@@ -249,6 +228,7 @@ export function LiveScoring() {
         <RunnerAdvanceSheet
           game={game}
           result={pendingResult}
+          detail={pendingDetail}
           open={!!pendingResult}
           onOpenChange={(open) => {
             if (!open) {

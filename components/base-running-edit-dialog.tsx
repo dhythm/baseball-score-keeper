@@ -20,8 +20,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
-import type { Game } from "@/lib/types";
+import type { AppGame } from "@/lib/app-state/types";
 import { BASE_RUNNING_LABELS } from "@/lib/types";
+import { getTimelineEntry } from "@/lib/app-state/selectors";
 
 export function BaseRunningEditDialog({
   game,
@@ -29,7 +30,7 @@ export function BaseRunningEditDialog({
   open,
   onOpenChange,
 }: {
-  game: Game;
+  game: AppGame;
   eventId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,10 +40,15 @@ export function BaseRunningEditDialog({
 
   const event = eventId ? game.events.find((e) => e.id === eventId) : undefined;
   const baseRun =
-    event?.type === "baseRunning" && event.baseRunningType ? event : undefined;
+    event?.kind === "baseRunning" ? event : undefined;
+  const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
   const halfLabel =
-    baseRun?.half === "top" ? "表" : baseRun?.half === "bottom" ? "裏" : "";
+    timelineEntry?.half === "top"
+      ? "表"
+      : timelineEntry?.half === "bottom"
+        ? "裏"
+        : "";
 
   const handleDelete = () => {
     if (!eventId) return;
@@ -60,15 +66,15 @@ export function BaseRunningEditDialog({
             <DialogDescription>
               {baseRun && (
                 <>
-                  {baseRun.inning}回{halfLabel}のイベントです。
+                  {timelineEntry?.inning}回{halfLabel}のイベントです。
                 </>
               )}
             </DialogDescription>
           </DialogHeader>
 
-          {baseRun?.baseRunningType && (
+          {baseRun && (
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
-              {BASE_RUNNING_LABELS[baseRun.baseRunningType]}
+              {BASE_RUNNING_LABELS[baseRun.type]}
             </div>
           )}
 

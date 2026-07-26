@@ -6,6 +6,7 @@ import {
   formatAtBatResult,
   formatBaseRunningNotation,
   formatEventNotation,
+  formatFieldingPosition,
 } from "./notation";
 
 function atBat(
@@ -23,6 +24,11 @@ function atBat(
 }
 
 describe("at-bat notation", () => {
+  it("formats a fielding position for a scorebook lineup", () => {
+    expect(formatFieldingPosition("short")).toBe("遊");
+    expect(formatFieldingPosition("dh")).toBe("指");
+  });
+
   it("renders a legacy unspecialized strikeout as 三振", () => {
     expect(formatAtBatResult("strikeout")).toBe("三振");
   });

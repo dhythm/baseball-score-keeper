@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Game, BaseRunningType, Base, TeamSide } from "@/lib/types";
-import { getPlayerById } from "@/lib/game-utils";
+import type { BaseRunningType, Base, TeamSide } from "@/lib/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getPlayerById } from "@/lib/app-state/selectors";
 
 export interface BaseRunningEventResult {
   runnerId: string;
@@ -24,7 +25,7 @@ export interface BaseRunningEventResult {
 }
 
 interface BaseRunningEventSheetProps {
-  game: Game;
+  game: AppGame;
   onEvent: (payload: BaseRunningEventResult) => void;
 }
 

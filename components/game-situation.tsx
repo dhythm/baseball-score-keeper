@@ -3,11 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DiamondField } from "@/components/diamond-field";
-import type { Game } from "@/lib/types";
-import { getCurrentBatter, getNextBatter } from "@/lib/game-utils";
+import type { AppGame } from "@/lib/app-state/types";
+import { getCurrentBatter, getNextBatter } from "@/lib/app-state/selectors";
 
 interface GameSituationProps {
-  game: Game;
+  game: AppGame;
   onRecordResult?: () => void;
   onOpenBaseRunning?: () => void;
 }

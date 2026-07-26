@@ -20,16 +20,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useGame } from "@/lib/game-context";
-import type { AtBatResult, Game } from "@/lib/types";
-import { RESULT_LABELS } from "@/lib/types";
+import type { AtBatResult } from "@/lib/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getTimelineEntry } from "@/lib/app-state/selectors";
 import {
-  buildAtBatEventUpdateFromResult,
-  getOutsBeforeEvent,
-} from "@/lib/game-utils";
+  createAtBatEvent,
+  getDefaultMovementsForSelection,
+} from "@/lib/app-state/event-factory";
+import { formatAtBatResult } from "@/lib/domain/notation";
 import { AtBatResultFlow } from "@/components/at-bat-result-flow";
 
 export type AtBatResultDialogProps = {
-  game: Game;
+  game: AppGame;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "new" | "edit";
@@ -60,10 +62,15 @@ export function AtBatResultDialog({
       ? game.events.find((e) => e.id === eventId)
       : undefined;
   const atBat =
-    event?.type === "atBat" && event.result ? event : undefined;
+    event?.kind === "atBat" ? event : undefined;
+  const timelineEntry = eventId ? getTimelineEntry(game, eventId) : null;
 
   const halfLabel =
-    atBat?.half === "top" ? "表" : atBat?.half === "bottom" ? "裏" : "";
+    timelineEntry?.half === "top"
+      ? "表"
+      : timelineEntry?.half === "bottom"
+        ? "裏"
+        : "";
 
   const handleFlowSubmit = (result: AtBatResult, detail?: string) => {
     if (mode === "new") {
@@ -72,9 +79,26 @@ export function AtBatResultDialog({
       return;
     }
     if (!eventId || !atBat) return;
-    const patch = buildAtBatEventUpdateFromResult(game, eventId, result, detail);
-    if (!patch) return;
-    dispatch({ type: "UPDATE_EVENT", eventId, event: patch });
+    const before = timelineEntry?.before;
+    if (!before) return;
+    const movements = getDefaultMovementsForSelection(
+      result,
+      detail,
+      before.runners,
+      atBat.batterId,
+      before.outs
+    );
+    dispatch({
+      type: "UPDATE_EVENT",
+      eventId,
+      event: createAtBatEvent({
+        id: eventId,
+        batterId: atBat.batterId,
+        result,
+        detail,
+        movements,
+      }),
+    });
     onOpenChange(false);
   };
 
@@ -86,8 +110,8 @@ export function AtBatResultDialog({
   };
 
   const outsForFlow =
-    mode === "edit" && eventId
-      ? getOutsBeforeEvent(game, eventId)
+    mode === "edit" && timelineEntry
+      ? timelineEntry.outsBefore
       : game.currentState.outs;
 
   const title =
@@ -95,7 +119,7 @@ export function AtBatResultDialog({
   const description =
     mode === "edit" && atBat ? (
       <>
-        {atBat.inning}回{halfLabel}の打席を変更します。ボタンだけで表記を選べます。
+        {timelineEntry?.inning}回{halfLabel}の打席を変更します。ボタンだけで表記を選べます。
       </>
     ) : (
       <>種類を選び、続いて打球の方向や守備位置を選んでください。</>
@@ -115,9 +139,9 @@ export function AtBatResultDialog({
 
           {mode === "edit" && atBat && atBat.result && (
             <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
-              現在: {RESULT_LABELS[atBat.result]}
-              {atBat.resultDetail ? (
-                <span className="text-muted-foreground">（{atBat.resultDetail}）</span>
+              現在: {formatAtBatResult(atBat.result, atBat.battedBall)}
+              {atBat.note ? (
+                <span className="text-muted-foreground">（{atBat.note}）</span>
               ) : null}
             </div>
           )}

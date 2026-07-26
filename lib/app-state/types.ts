@@ -1,0 +1,54 @@
+import type {
+  GameConfig,
+  GameEvent,
+  Snapshot,
+  TimelineEntry,
+  Violation,
+} from "../domain/types";
+import type { PersistedGameV2 } from "../storage/local-storage";
+
+export type AppGameStatus = "live" | "finished";
+
+/**
+ * In-memory game view.
+ *
+ * `config` and `events` are the persisted source of truth. The remaining game
+ * progress fields are rebuilt by replay and must not be persisted.
+ */
+export interface AppGame {
+  id: string;
+  date: string;
+  config: GameConfig;
+  events: GameEvent[];
+  manualEnded: boolean;
+  status: AppGameStatus;
+  currentState: Snapshot;
+  timeline: TimelineEntry[];
+  violations: Violation[];
+  /** Compatibility alias for UI code while it moves to `config`. */
+  teams: GameConfig["teams"];
+  /** Compatibility alias for UI code while it moves to `config`. */
+  totalInnings: number;
+}
+
+export type AppGameState = AppGame | null;
+
+export type GameAction =
+  | {
+      type: "START_GAME";
+      id: string;
+      date: string;
+      config: GameConfig;
+    }
+  | { type: "ADD_EVENT"; event: GameEvent }
+  | {
+      type: "UPDATE_EVENT";
+      eventId: string;
+      event: GameEvent;
+    }
+  | { type: "DELETE_EVENT"; eventId: string }
+  | { type: "UNDO_LAST_EVENT" }
+  | { type: "END_GAME" }
+  | { type: "RESUME_GAME" }
+  | { type: "RESET_GAME" }
+  | { type: "LOAD_GAME"; game: PersistedGameV2 };

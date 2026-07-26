@@ -19,9 +19,10 @@ import { Scoreboard } from "@/components/scoreboard";
 import { BattingScorebookTable } from "@/components/batting-scorebook-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGame } from "@/lib/game-context";
-import type { Game, GameEvent, TeamSide, Half } from "@/lib/types";
-import { getPlayerById } from "@/lib/game-utils";
-import { RESULT_LABELS, BASE_RUNNING_LABELS } from "@/lib/types";
+import type { Half, TeamSide, TimelineEntry } from "@/lib/domain/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getPlayerById } from "@/lib/app-state/selectors";
+import { formatEventNotation } from "@/lib/domain/notation";
 import { RotateCcw, Edit } from "lucide-react";
 import {
   AlertDialog,
@@ -34,18 +35,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-function InningDetails({ game }: { game: Game }) {
-  const groupedEvents: Record<string, GameEvent[]> = {};
+function InningDetails({ game }: { game: AppGame }) {
+  const groupedEntries: Record<string, TimelineEntry[]> = {};
 
-  for (const event of game.events) {
-    const key = `${event.inning}-${event.half}`;
-    if (!groupedEvents[key]) {
-      groupedEvents[key] = [];
+  for (const entry of game.timeline) {
+    if (!entry.applied) continue;
+    const key = `${entry.inning}-${entry.half}`;
+    if (!groupedEntries[key]) {
+      groupedEntries[key] = [];
     }
-    groupedEvents[key].push(event);
+    groupedEntries[key].push(entry);
   }
 
-  const innings = Object.keys(groupedEvents).sort((a, b) => {
+  const innings = Object.keys(groupedEntries).sort((a, b) => {
     const [aInning, aHalf] = a.split("-");
     const [bInning, bHalf] = b.split("-");
     if (aInning !== bInning) return parseInt(aInning) - parseInt(bInning);
@@ -63,7 +65,7 @@ function InningDetails({ game }: { game: Game }) {
         <Accordion type="single" collapsible className="w-full">
           {innings.map((key) => {
             const [inning, half] = key.split("-") as [string, Half];
-            const events = groupedEvents[key];
+            const entries = groupedEntries[key];
             const teamSide = half === "top" ? "away" : "home";
             const teamName = game.teams[teamSide].name;
 
@@ -74,8 +76,9 @@ function InningDetails({ game }: { game: Game }) {
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-2">
-                    {events.map((event, index) => {
-                      if (event.type === "atBat" && event.batterId && event.result) {
+                    {entries.map((entry, index) => {
+                      const event = entry.event;
+                      if (event.kind === "atBat") {
                         const batter = getPlayerById(game, event.batterId);
                         return (
                           <div
@@ -89,32 +92,32 @@ function InningDetails({ game }: { game: Game }) {
                               {batter?.name ?? "不明"}
                             </span>
                             <span className="text-muted-foreground">:</span>
-                            <span>{RESULT_LABELS[event.result]}</span>
-                            {event.resultDetail && (
+                            <span>{formatEventNotation(event)}</span>
+                            {event.note && (
                               <span className="text-muted-foreground text-xs">
-                                ({event.resultDetail})
+                                ({event.note})
                               </span>
                             )}
-                            {event.runsScored > 0 && (
+                            {entry.runsScored > 0 && (
                               <span className="text-primary font-semibold">
-                                +{event.runsScored}点
+                                +{entry.runsScored}点
                               </span>
                             )}
                           </div>
                         );
                       }
 
-                      if (event.type === "baseRunning" && event.baseRunningType) {
+                      if (event.kind === "baseRunning") {
                         return (
                           <div
                             key={event.id}
                             className="flex items-center gap-2 text-sm text-muted-foreground"
                           >
                             <span className="w-6">#{index + 1}</span>
-                            <span>{BASE_RUNNING_LABELS[event.baseRunningType]}</span>
-                            {event.runsScored > 0 && (
+                            <span>{formatEventNotation(event)}</span>
+                            {entry.runsScored > 0 && (
                               <span className="text-primary font-semibold">
-                                +{event.runsScored}点
+                                +{entry.runsScored}点
                               </span>
                             )}
                           </div>
@@ -146,7 +149,7 @@ export function GameResult() {
   };
 
   const handleContinueGame = () => {
-    dispatch({ type: "UNDO_LAST_EVENT" });
+    dispatch({ type: "RESUME_GAME" });
   };
 
   return (

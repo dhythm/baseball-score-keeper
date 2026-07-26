@@ -26,8 +26,12 @@ const POSITION_SHORT: Record<FieldingPosition, string> = {
   dh: "指",
 };
 
+export function formatFieldingPosition(position: FieldingPosition): string {
+  return POSITION_SHORT[position];
+}
+
 function positionPrefix(battedBall?: BattedBall): string {
-  return battedBall ? POSITION_SHORT[battedBall.position] : "";
+  return battedBall ? formatFieldingPosition(battedBall.position) : "";
 }
 
 export function formatAtBatResult(

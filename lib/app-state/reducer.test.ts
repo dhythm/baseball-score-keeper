@@ -1,0 +1,272 @@
+import { describe, expect, it } from "vitest";
+
+import type { GameEvent, Team } from "../domain/types";
+import type { PersistedGameV2 } from "../storage/local-storage";
+import { gameReducer } from "./reducer";
+import {
+  getCurrentBatter,
+  getNextBatter,
+  getTimelineEntry,
+  toPersistedGame,
+} from "./selectors";
+import type { GameAction } from "./types";
+
+const team = (side: string): Team => ({
+  name: side,
+  players: [
+    { id: `${side}-1`, name: `${side} 1`, order: 1 },
+    { id: `${side}-2`, name: `${side} 2`, order: 2 },
+  ],
+});
+
+const persistedGame = (
+  events: GameEvent[] = [],
+  status: PersistedGameV2["status"] = "live"
+): PersistedGameV2 => ({
+  id: "game-1",
+  date: "2026-07-26T00:00:00.000Z",
+  status,
+  config: {
+    regulationInnings: 7,
+    teams: { away: team("away"), home: team("home") },
+  },
+  events,
+});
+
+const out = (id: string, batterId: string): GameEvent => ({
+  id,
+  kind: "atBat",
+  batterId,
+  result: "groundOut",
+  movements: [
+    { playerId: batterId, from: "batter", to: "out", isRBI: false },
+  ],
+});
+
+const homeRun = (id: string, batterId: string): GameEvent => ({
+  id,
+  kind: "atBat",
+  batterId,
+  result: "homerun",
+  movements: [
+    { playerId: batterId, from: "batter", to: "home", isRBI: true },
+  ],
+});
+
+function reduce(actions: GameAction[]) {
+  return actions.reduce(gameReducer, null);
+}
+
+describe("app-state gameReducer", () => {
+  it("starts a game and derives an empty replay view", () => {
+    const state = gameReducer(null, {
+      type: "START_GAME",
+      id: "started",
+      date: "2026-07-26T01:00:00.000Z",
+      config: persistedGame().config,
+    });
+
+    expect(state).toMatchObject({
+      id: "started",
+      status: "live",
+      manualEnded: false,
+      events: [],
+      currentState: {
+        inning: 1,
+        half: "top",
+        outs: 0,
+      },
+      timeline: [],
+      violations: [],
+    });
+  });
+
+  it("adds input-only events and derives state and timeline", () => {
+    const state = reduce([
+      { type: "LOAD_GAME", game: persistedGame() },
+      { type: "ADD_EVENT", event: out("out-1", "away-1") },
+    ]);
+
+    expect(state?.events).toEqual([out("out-1", "away-1")]);
+    expect(state?.currentState.outs).toBe(1);
+    expect(state?.timeline[0]).toMatchObject({
+      inning: 1,
+      half: "top",
+      outsRecorded: 1,
+      applied: true,
+    });
+  });
+
+  it("replaces an event and replays every derived value", () => {
+    const state = reduce([
+      { type: "LOAD_GAME", game: persistedGame([out("play", "away-1")]) },
+      {
+        type: "UPDATE_EVENT",
+        eventId: "play",
+        event: homeRun("ignored-replacement-id", "away-1"),
+      },
+    ]);
+
+    expect(state?.events[0]).toEqual(homeRun("play", "away-1"));
+    expect(state?.currentState).toMatchObject({
+      outs: 0,
+      score: { away: 1, home: 0 },
+    });
+    expect(state?.timeline[0].runsScored).toBe(1);
+  });
+
+  it("deletes and undoes events by replaying the remaining inputs", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([
+        out("first", "away-1"),
+        out("second", "away-2"),
+      ]),
+    });
+    const deleted = gameReducer(loaded, {
+      type: "DELETE_EVENT",
+      eventId: "first",
+    });
+    const undone = gameReducer(deleted, { type: "UNDO_LAST_EVENT" });
+
+    expect(deleted?.events.map(({ id }) => id)).toEqual(["second"]);
+    expect(deleted?.currentState.outs).toBe(1);
+    expect(undone?.events).toEqual([]);
+    expect(undone?.currentState.outs).toBe(0);
+  });
+
+  it("keeps manual game end separate from replay and resumes explicitly", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1")]),
+    });
+    const ended = gameReducer(loaded, { type: "END_GAME" });
+    const undone = gameReducer(ended, { type: "UNDO_LAST_EVENT" });
+    const resumed = gameReducer(undone, { type: "RESUME_GAME" });
+
+    expect(ended).toMatchObject({ status: "finished", manualEnded: true });
+    expect(ended?.currentState.gameStatus).toBe("live");
+    expect(undone).toMatchObject({
+      status: "finished",
+      manualEnded: true,
+      events: [],
+    });
+    expect(resumed).toMatchObject({ status: "live", manualEnded: false });
+  });
+
+  it("restores a persisted manual end and can reset to setup", () => {
+    const loaded = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([], "finished"),
+    });
+
+    expect(loaded).toMatchObject({
+      status: "finished",
+      manualEnded: true,
+    });
+    expect(gameReducer(loaded, { type: "RESET_GAME" })).toBeNull();
+  });
+
+  it("derives an automatic game end without marking it manual", () => {
+    const game = persistedGame([
+      homeRun("away-score", "away-1"),
+      out("away-out-1", "away-2"),
+      out("away-out-2", "away-1"),
+      out("away-out-3", "away-2"),
+      out("home-out-1", "home-1"),
+      out("home-out-2", "home-2"),
+      out("home-out-3", "home-1"),
+    ]);
+    game.config.regulationInnings = 1;
+
+    const state = gameReducer(null, { type: "LOAD_GAME", game });
+
+    expect(state).toMatchObject({
+      status: "finished",
+      manualEnded: false,
+      currentState: {
+        gameStatus: "finished",
+        gameEndReason: "completedHalf",
+      },
+    });
+  });
+
+  it("uses replay violations rather than trusting invalid event input", () => {
+    const collisionEvents: GameEvent[] = [
+      {
+        id: "first",
+        kind: "atBat",
+        batterId: "away-1",
+        result: "single",
+        movements: [
+          {
+            playerId: "away-1",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+      },
+      {
+        id: "collision",
+        kind: "atBat",
+        batterId: "away-2",
+        result: "single",
+        movements: [
+          {
+            playerId: "away-2",
+            from: "batter",
+            to: "first",
+            isRBI: false,
+          },
+        ],
+      },
+    ];
+
+    const state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame(collisionEvents),
+    });
+
+    expect(state?.events).toEqual(collisionEvents);
+    expect(state?.currentState.runners.first).toBe("away-1");
+    expect(state?.violations).toContainEqual(
+      expect.objectContaining({
+        eventId: "collision",
+        code: "DESTINATION_OCCUPIED",
+      })
+    );
+  });
+});
+
+describe("app-state selectors", () => {
+  it("selects batters and timeline entries from derived state", () => {
+    const state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1")]),
+    });
+
+    expect(getCurrentBatter(state!)).toMatchObject({ id: "away-2" });
+    expect(getNextBatter(state!)).toMatchObject({ id: "away-1" });
+    expect(getTimelineEntry(state!, "first")).toMatchObject({
+      inning: 1,
+      half: "top",
+    });
+  });
+
+  it("projects only persisted input fields", () => {
+    const state = gameReducer(null, {
+      type: "LOAD_GAME",
+      game: persistedGame([out("first", "away-1")]),
+    });
+
+    expect(toPersistedGame(state!)).toEqual({
+      ...persistedGame([out("first", "away-1")]),
+      status: "live",
+    });
+    expect(toPersistedGame(state!)).not.toHaveProperty("timeline");
+    expect(toPersistedGame(state!)).not.toHaveProperty("currentState");
+    expect(toPersistedGame(state!)).not.toHaveProperty("violations");
+    expect(toPersistedGame(state!)).not.toHaveProperty("manualEnded");
+  });
+});

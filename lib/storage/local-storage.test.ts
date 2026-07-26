@@ -285,4 +285,21 @@ describe("localStorage adapter", () => {
       parseStoredGame(JSON.stringify({ schemaVersion: 3, game: {} }))
     ).toThrow("unsupported schema version: 3");
   });
+
+  it("rejects a malformed v2 payload before replay can consume it", () => {
+    expect(() =>
+      parseStoredGame(
+        JSON.stringify({
+          schemaVersion: 2,
+          game: {
+            id: "broken",
+            date: "2026-01-01",
+            status: "live",
+            config: { regulationInnings: 7 },
+            events: [],
+          },
+        })
+      )
+    ).toThrow("malformed schema version 2 game");
+  });
 });

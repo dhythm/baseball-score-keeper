@@ -23,6 +23,7 @@ import {
   syncStartingPitcher,
 } from "@/lib/game-utils";
 import { createDummyGameAfterSevenInnings } from "@/lib/dummy-game";
+import { migrateV1Game } from "@/lib/storage/local-storage";
 
 const emptyTeam = (): Team => ({
   name: "",
@@ -434,8 +435,12 @@ export function GameSetup() {
   const startGame = () => {
     dispatch({
       type: "START_GAME",
-      awayTeam,
-      homeTeam,
+      id: generateId(),
+      date: new Date().toISOString(),
+      config: {
+        regulationInnings: 9,
+        teams: { away: awayTeam, home: homeTeam },
+      },
     });
   };
 
@@ -445,7 +450,10 @@ export function GameSetup() {
   };
 
   const loadDummyGame = () => {
-    dispatch({ type: "LOAD_GAME", game: createDummyGameAfterSevenInnings() });
+    dispatch({
+      type: "LOAD_GAME",
+      game: migrateV1Game(createDummyGameAfterSevenInnings()),
+    });
   };
 
   return (

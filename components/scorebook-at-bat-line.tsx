@@ -1,18 +1,21 @@
 "use client";
 
-import type { GameEvent } from "@/lib/types";
-import { getAtBatCellDisplayParts } from "@/lib/game-utils";
+import type { TimelineEntry } from "@/lib/domain/types";
+import { formatAtBatNotation } from "@/lib/domain/notation";
 import { cn } from "@/lib/utils";
 
 export function ScorebookAtBatLine({
-  event,
+  entry,
   className,
 }: {
-  event: GameEvent;
+  entry: TimelineEntry;
   className?: string;
 }) {
-  const p = getAtBatCellDisplayParts(event);
-  if (!p) return null;
+  if (entry.event.kind !== "atBat") return null;
+  const playLine = formatAtBatNotation(entry.event);
+  const rbi = entry.scoringMovements.filter(
+    (movement) => movement.isRBI
+  ).length;
   return (
     <span
       className={cn(
@@ -20,10 +23,10 @@ export function ScorebookAtBatLine({
         className
       )}
     >
-      <span className="text-primary">{p.playLine}</span>
-      {p.rbiNote ? (
+      <span className="text-primary">{playLine}</span>
+      {rbi > 0 ? (
         <span className="whitespace-nowrap text-[9px] font-medium leading-none text-muted-foreground tabular-nums">
-          {p.rbiNote}
+          打点{rbi}
         </span>
       ) : null}
     </span>

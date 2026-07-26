@@ -2,35 +2,64 @@
 
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
-import type { FieldingPosition, Game, TeamSide } from "@/lib/types";
-import { FIELDING_POSITION_SCOREBOOK } from "@/lib/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getEffectiveInningCount } from "@/lib/app-state/selectors";
+import type {
+  FieldingPosition,
+  TeamSide,
+  TimelineEntry,
+} from "@/lib/domain/types";
 import {
   formatBattingAverage,
-  getBaseRunningCellDisplayText,
-  getEffectiveTotalInnings,
   getPlayerBattingStats,
-  getPlayerInningScorebookEvents,
-} from "@/lib/game-utils";
+} from "@/lib/domain/stats";
+import {
+  formatBaseRunningNotation,
+  formatFieldingPosition,
+} from "@/lib/domain/notation";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 
 interface BattingScorebookTableProps {
-  game: Game;
+  game: AppGame;
   teamSide: TeamSide;
 }
 
 function positionLabel(position: FieldingPosition | null | undefined): string {
   if (!position) return "—";
-  return FIELDING_POSITION_SCOREBOOK[position];
+  return formatFieldingPosition(position);
+}
+
+function getPlayerInningEntries(
+  timeline: readonly TimelineEntry[],
+  playerId: string,
+  teamSide: TeamSide,
+  inning: number
+): TimelineEntry[] {
+  return timeline.filter((entry) => {
+    if (
+      !entry.applied ||
+      entry.team !== teamSide ||
+      entry.inning !== inning
+    ) {
+      return false;
+    }
+    if (entry.event.kind === "atBat") {
+      return entry.event.batterId === playerId;
+    }
+    return entry.event.movements.some(
+      (movement) => movement.playerId === playerId
+    );
+  });
 }
 
 export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableProps) {
-  const team = game.teams[teamSide];
-  const innings = getEffectiveTotalInnings(game);
-  const { events } = game;
+  const team = game.config.teams[teamSide];
+  const innings = getEffectiveInningCount(game);
+  const { timeline } = game;
 
   const totals = team.players.reduce(
     (acc, p) => {
-      const s = getPlayerBattingStats(events, p.id);
+      const s = getPlayerBattingStats(timeline, p.id);
       return {
         atBats: acc.atBats + s.atBats,
         hits: acc.hits + s.hits,
@@ -40,6 +69,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
         hitByPitch: acc.hitByPitch + s.hitByPitch,
         strikeouts: acc.strikeouts + s.strikeouts,
         sacrifice: acc.sacrifice + s.sacrifice,
+        sacrificeFlies: acc.sacrificeFlies + s.sacrificeFlies,
       };
     },
     {
@@ -51,6 +81,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
       hitByPitch: 0,
       strikeouts: 0,
       sacrifice: 0,
+      sacrificeFlies: 0,
     }
   );
 
@@ -112,6 +143,9 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               <th className={thStat} scope="col" title="犠打">
                 犠
               </th>
+              <th className={thStat} scope="col" title="犠飛">
+                飛
+              </th>
               <th className={cn(thStat, "border-r border-border")} scope="col" title="打率">
                 率
               </th>
@@ -128,7 +162,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
           </thead>
           <tbody>
             {team.players.map((player, index) => {
-              const stats = getPlayerBattingStats(events, player.id);
+              const stats = getPlayerBattingStats(timeline, player.id);
               return (
                 <tr key={player.id} className="border-b border-border last:border-b-0">
                   <td className="sticky left-0 z-10 w-8 min-w-8 border-r border-border bg-card px-1 py-1.5 text-center font-mono text-[11px] text-muted-foreground tabular-nums sm:text-xs">
@@ -148,13 +182,14 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                   <td className={tdStat}>{stats.hitByPitch}</td>
                   <td className={tdStat}>{stats.strikeouts}</td>
                   <td className={tdStat}>{stats.sacrifice}</td>
+                  <td className={tdStat}>{stats.sacrificeFlies}</td>
                   <td className={cn(tdStat, "border-r border-border text-foreground")}>
                     {formatBattingAverage(stats.hits, stats.atBats)}
                   </td>
                   {Array.from({ length: innings }, (_, i) => {
                     const inning = i + 1;
-                    const segs = getPlayerInningScorebookEvents(
-                      events,
+                    const segs = getPlayerInningEntries(
+                      timeline,
                       player.id,
                       teamSide,
                       inning
@@ -165,8 +200,8 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                           " "
                         ) : (
                           <div className="flex flex-wrap items-end justify-center gap-x-0.5 gap-y-0.5">
-                            {segs.map((ev, idx) => (
-                              <Fragment key={ev.id}>
+                            {segs.map((entry, idx) => (
+                              <Fragment key={entry.event.id}>
                                 {idx > 0 && (
                                   <span
                                     className="self-center text-[9px] text-muted-foreground"
@@ -175,11 +210,11 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
                                     ・
                                   </span>
                                 )}
-                                {ev.type === "atBat" ? (
-                                  <ScorebookAtBatLine event={ev} />
+                                {entry.event.kind === "atBat" ? (
+                                  <ScorebookAtBatLine entry={entry} />
                                 ) : (
                                   <span className="text-[10px] leading-tight text-primary">
-                                    {getBaseRunningCellDisplayText(ev)}
+                                    {formatBaseRunningNotation(entry.event)}
                                   </span>
                                 )}
                               </Fragment>
@@ -206,6 +241,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
               <td className={cn(tdStat, "text-foreground")}>{totals.hitByPitch}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.strikeouts}</td>
               <td className={cn(tdStat, "text-foreground")}>{totals.sacrifice}</td>
+              <td className={cn(tdStat, "text-foreground")}>{totals.sacrificeFlies}</td>
               <td className={cn(tdStat, "border-r border-border text-foreground")}>
                 {formatBattingAverage(totals.hits, totals.atBats)}
               </td>
@@ -217,7 +253,7 @@ export function BattingScorebookTable({ game, teamSide }: BattingScorebookTableP
         </table>
       </div>
       <p className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
-        列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振 犠=犠打 率=打率。
+        列見出し: 打=打数 安=安打 得=得点 点=打点 四=四球 死=死球 三=三振 犠=犠打 飛=犠飛 率=打率。
         右側の数字はイニング（先攻は各回の表・後攻は裏の結果）。イニング欄はプレー表記の下に打点（自動）を小さく表示します。
       </p>
     </div>

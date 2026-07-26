@@ -11,8 +11,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { AtBatResult, Game, Base, RunnerMovement } from "@/lib/types";
-import { getPlayerById, getDefaultMovements, getCurrentBatter } from "@/lib/game-utils";
+import type { AtBatResult, Base } from "@/lib/types";
+import type { RunnerMovement } from "@/lib/domain/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getCurrentBatter, getPlayerById } from "@/lib/app-state/selectors";
+import { getDefaultMovementsForSelection } from "@/lib/app-state/event-factory";
 import { RESULT_LABELS } from "@/lib/types";
 
 type Destination = Base | "home" | "out";
@@ -31,8 +34,9 @@ function defaultRbiWhenScoring(
 }
 
 interface RunnerAdvanceSheetProps {
-  game: Game;
+  game: AppGame;
   result: AtBatResult;
+  detail?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (movements: RunnerMovement[], outsInPlay: number, runsScored: number) => void;
@@ -48,6 +52,7 @@ interface RunnerState {
 export function RunnerAdvanceSheet({
   game,
   result,
+  detail,
   open,
   onOpenChange,
   onConfirm,
@@ -57,8 +62,14 @@ export function RunnerAdvanceSheet({
 
   const initialMovements = useMemo(() => {
     if (!currentBatter) return [];
-    return getDefaultMovements(result, runners, currentBatter.id, outs);
-  }, [result, runners, currentBatter, outs]);
+    return getDefaultMovementsForSelection(
+      result,
+      detail,
+      runners,
+      currentBatter.id,
+      outs
+    );
+  }, [result, detail, runners, currentBatter, outs]);
 
   const [runnerStates, setRunnerStates] = useState<RunnerState[]>([]);
   const [rbiByPlayerId, setRbiByPlayerId] = useState<Record<string, boolean>>({});

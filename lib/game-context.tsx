@@ -5,16 +5,17 @@ import {
   useContext,
   useReducer,
   useEffect,
+  useState,
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { Game } from "./types";
-import { gameReducer, type GameAction } from "./game-reducer";
-
-const STORAGE_KEY = "baseball-scorer-game";
+import type { AppGame, GameAction } from "./app-state/types";
+import { gameReducer } from "./app-state/reducer";
+import { toPersistedGame } from "./app-state/selectors";
+import { createBrowserGameStorage } from "./storage/local-storage";
 
 interface GameContextValue {
-  game: Game | null;
+  game: AppGame | null;
   dispatch: Dispatch<GameAction>;
 }
 
@@ -22,26 +23,25 @@ const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [game, dispatch] = useReducer(gameReducer, null);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = createBrowserGameStorage().load();
     if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Game;
-        dispatch({ type: "LOAD_GAME", game: parsed });
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
+      dispatch({ type: "LOAD_GAME", game: stored });
     }
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
+    const storage = createBrowserGameStorage();
     if (game) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(game));
+      storage.save(toPersistedGame(game));
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      storage.clear();
     }
-  }, [game]);
+  }, [game, hydrated]);
 
   return (
     <GameContext.Provider value={{ game, dispatch }}>

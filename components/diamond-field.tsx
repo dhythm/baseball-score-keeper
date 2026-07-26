@@ -1,11 +1,12 @@
 "use client";
 
-import type { Runners, Game } from "@/lib/types";
-import { getPlayerById } from "@/lib/game-utils";
+import type { Runners } from "@/lib/domain/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getPlayerById } from "@/lib/app-state/selectors";
 
 interface DiamondFieldProps {
   runners: Runners;
-  game: Game;
+  game: AppGame;
 }
 
 export function DiamondField({ runners, game }: DiamondFieldProps) {

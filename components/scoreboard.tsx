@@ -2,23 +2,23 @@
 
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import type { Game } from "@/lib/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getEffectiveInningCount } from "@/lib/app-state/selectors";
 import {
-  getEffectiveTotalInnings,
   getInningScores,
   getTeamStats,
-} from "@/lib/game-utils";
+} from "@/lib/domain/stats";
 
 interface ScoreboardProps {
-  game: Game;
+  game: AppGame;
 }
 
 export function Scoreboard({ game }: ScoreboardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inningCount = getEffectiveTotalInnings(game);
-  const scores = getInningScores(game.events, inningCount);
-  const awayStats = getTeamStats(game.events, "away");
-  const homeStats = getTeamStats(game.events, "home");
+  const inningCount = getEffectiveInningCount(game);
+  const scores = getInningScores(game.timeline, inningCount);
+  const awayStats = getTeamStats(game.timeline, "away");
+  const homeStats = getTeamStats(game.timeline, "home");
 
   const currentInning = game.currentState.inning;
 
@@ -38,10 +38,10 @@ export function Scoreboard({ game }: ScoreboardProps) {
             チーム
           </div>
           <div className="h-8 w-20 flex items-center px-2 text-sm font-medium text-foreground border-b border-border truncate">
-            {game.teams.away.name || "先攻"}
+            {game.config.teams.away.name || "先攻"}
           </div>
           <div className="h-8 w-20 flex items-center px-2 text-sm font-medium text-foreground truncate">
-            {game.teams.home.name || "後攻"}
+            {game.config.teams.home.name || "後攻"}
           </div>
         </div>
 

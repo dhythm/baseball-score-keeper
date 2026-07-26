@@ -10,19 +10,19 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import type { Game, TeamSide } from "@/lib/types";
+import type { TeamSide } from "@/lib/domain/types";
+import type { AppGame } from "@/lib/app-state/types";
+import { getEffectiveInningCount } from "@/lib/app-state/selectors";
 import {
-  getAtBatCellDisplayText,
-  getBaseRunningCellDisplayText,
-  getPlayerInningScorebookEvents,
-  getEffectiveTotalInnings,
-} from "@/lib/game-utils";
+  formatAtBatNotation,
+  formatBaseRunningNotation,
+} from "@/lib/domain/notation";
 import { AtBatResultDialog } from "@/components/at-bat-result-dialog";
 import { BaseRunningEditDialog } from "@/components/base-running-edit-dialog";
 import { ScorebookAtBatLine } from "@/components/scorebook-at-bat-line";
 
 interface BattingOrderPanelProps {
-  game: Game;
+  game: AppGame;
 }
 
 function OrderList({
@@ -31,7 +31,7 @@ function OrderList({
   isBattingTeam,
   onEditAtBat,
 }: {
-  game: Game;
+  game: AppGame;
   teamSide: TeamSide;
   isBattingTeam: boolean;
   onEditAtBat: (eventId: string) => void;
@@ -44,7 +44,7 @@ function OrderList({
   const showNextBadge =
     isBattingTeam && playerCount > 1 && nextIndex !== batterIndex;
 
-  const inningCount = getEffectiveTotalInnings(game);
+  const inningCount = getEffectiveInningCount(game);
   const halfForTeam = teamSide === "away" ? "top" : "bottom";
 
   /** sticky 列に半透明の bg-* を使うと、横スクロールの下のセルが透けて見えるため不透明にする */
@@ -163,11 +163,16 @@ function OrderList({
                 </td>
                 {Array.from({ length: inningCount }, (_, idx) => {
                   const inningNum = idx + 1;
-                  const cellEvents = getPlayerInningScorebookEvents(
-                    game.events,
-                    player.id,
-                    teamSide,
-                    inningNum
+                  const cellEntries = game.timeline.filter(
+                    (entry) =>
+                      entry.applied &&
+                      entry.team === teamSide &&
+                      entry.inning === inningNum &&
+                      (entry.event.kind === "atBat"
+                        ? entry.event.batterId === player.id
+                        : entry.event.movements.some(
+                            (movement) => movement.playerId === player.id
+                          ))
                   );
                   const isLiveColumn =
                     inningNum === game.currentState.inning &&
@@ -181,36 +186,38 @@ function OrderList({
                         isLiveColumn && "bg-accent/10"
                       )}
                     >
-                      {cellEvents.length === 0 ? (
+                      {cellEntries.length === 0 ? (
                         <span className="text-muted-foreground/40">·</span>
                       ) : (
                         <div className="flex min-h-10 flex-col items-center justify-center gap-0.5">
-                          {cellEvents.map((ev) => (
+                          {cellEntries.map((entry) => {
+                            const event = entry.event;
+                            const label =
+                              event.kind === "atBat"
+                                ? formatAtBatNotation(event)
+                                : formatBaseRunningNotation(event);
+                            return (
                             <button
-                              key={ev.id}
+                              key={event.id}
                               type="button"
                               className={cn(
                                 "min-h-9 w-full max-w-[3.5rem] rounded border bg-background px-0.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm",
-                                ev.type === "atBat"
+                                event.kind === "atBat"
                                   ? "border-border text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                                   : "border-dashed border-muted-foreground/40 text-primary hover:border-primary/50 hover:bg-accent/40 active:bg-accent"
                               )}
-                              onClick={() => onEditAtBat(ev.id)}
-                              aria-label={
-                                ev.type === "atBat"
-                                  ? `${inningNum}回の打席 ${getAtBatCellDisplayText(ev)}を修正`
-                                  : `${inningNum}回の走塁 ${getBaseRunningCellDisplayText(ev)}を修正`
-                              }
+                              onClick={() => onEditAtBat(event.id)}
+                              aria-label={`${inningNum}回の${event.kind === "atBat" ? "打席" : "走塁"} ${label}を修正`}
                             >
-                              {ev.type === "atBat" ? (
-                                <ScorebookAtBatLine event={ev} />
+                              {event.kind === "atBat" ? (
+                                <ScorebookAtBatLine entry={entry} />
                               ) : (
                                 <span className="line-clamp-2 break-all px-0.5 text-[10px] leading-tight sm:text-[11px]">
-                                  {getBaseRunningCellDisplayText(ev)}
+                                  {label}
                                 </span>
                               )}
                             </button>
-                          ))}
+                          )})}
                         </div>
                       )}
                     </td>
@@ -332,16 +339,16 @@ export function BattingOrderPanel({ game }: BattingOrderPanelProps) {
       <AtBatResultDialog
         mode="edit"
         game={game}
-        eventId={editingEvent?.type === "atBat" ? editingEventId : null}
-        open={editingEventId !== null && editingEvent?.type === "atBat"}
+        eventId={editingEvent?.kind === "atBat" ? editingEventId : null}
+        open={editingEventId !== null && editingEvent?.kind === "atBat"}
         onOpenChange={(open) => {
           if (!open) setEditingEventId(null);
         }}
       />
       <BaseRunningEditDialog
         game={game}
-        eventId={editingEvent?.type === "baseRunning" ? editingEventId : null}
-        open={editingEventId !== null && editingEvent?.type === "baseRunning"}
+        eventId={editingEvent?.kind === "baseRunning" ? editingEventId : null}
+        open={editingEventId !== null && editingEvent?.kind === "baseRunning"}
         onOpenChange={(open) => {
           if (!open) setEditingEventId(null);
         }}

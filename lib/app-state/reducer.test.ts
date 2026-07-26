@@ -165,11 +165,10 @@ describe("app-state gameReducer", () => {
   });
 
   it("keeps manual game end separate from replay and resumes explicitly", () => {
-    const loaded = gameReducer(null, {
+    const ended = gameReducer(null, {
       type: "LOAD_GAME",
-      game: persistedGame([out("first", "away-1")]),
+      game: persistedGame([out("first", "away-1")], "finished"),
     });
-    const ended = gameReducer(loaded, { type: "END_GAME" });
     const undone = gameReducer(ended, { type: "UNDO_LAST_EVENT" });
     const resumed = gameReducer(undone, { type: "RESUME_GAME" });
 

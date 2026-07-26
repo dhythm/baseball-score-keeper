@@ -51,7 +51,6 @@ export type GameAction =
   | { type: "DELETE_EVENT"; eventId: string }
   | { type: "UNDO_LAST_EVENT" }
   | { type: "REDO_LAST_EVENT" }
-  | { type: "END_GAME" }
   | { type: "RESUME_GAME" }
   | { type: "RESET_GAME" }
   | { type: "LOAD_GAME"; game: PersistedGameV2 };

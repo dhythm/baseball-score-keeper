@@ -184,10 +184,6 @@ export function gameReducer(
         state.manualEnded
       );
 
-    case "END_GAME":
-      if (!state) return null;
-      return { ...state, manualEnded: true, status: "finished" };
-
     case "RESUME_GAME":
       if (!state) return null;
       return deriveGame(
